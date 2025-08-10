@@ -298,7 +298,7 @@ canvas {
 .stack { display: grid; gap: 8px; }
 
 .intermission-shop { margin-top: 10px; display: grid; gap: 8px; }
-.intermission-item { display: grid; grid-template-columns: 24px 24px 1fr; align-items: center; gap: 8px; padding: 8px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; }
+.intermission-item { display: grid; grid-template-columns: 24px 24px 1fr; align-items: center; gap: 8px; padding: 8px; background: rgba(0,0,0,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; }
 .intermission-item .star { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; }
 .intermission-item .icon { font-size: 18px; filter: drop-shadow(0 0 2px rgba(255,255,255,0.3)); }
 .intermission-item .meta { display: grid; }

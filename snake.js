@@ -371,6 +371,7 @@
             startList.classList.remove("u-hidden");
             startList.innerHTML = renderPowerListHTML(kinds);
           }
+          // Remove the Start button for levels 2-6; only Continue should appear later
           if (startButton) startButton.classList.add("u-hidden");
         }
       }
@@ -1149,14 +1150,8 @@
           if (nextLevelButton) nextLevelButton.classList.add("u-hidden");
           if (intermissionActions) intermissionActions.classList.remove("u-hidden");
           if (intermissionShop) {
-            intermissionShop.classList.remove("u-hidden");
-            // Build list of power-stars available next level
-            const nextIdx = Math.min(levelIndex + 1, CAMPAIGN.length - 1);
-            applyLevelConfig(nextIdx);
-            const kinds = enabledPowerKinds;
-            intermissionShop.innerHTML = renderPowerListHTML(kinds);
-            // restore current level config after preview
-            applyLevelConfig(levelIndex);
+            // Hide collected-items section entirely per requirement
+            intermissionShop.classList.add("u-hidden");
           }
           overlay.classList.remove("hidden");
           running = false;
