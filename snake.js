@@ -1109,6 +1109,20 @@ function drawCell(x, y, color1, color2) {
     });
   }
 
+  // D-pad controls (mobile)
+  const dpad = document.getElementById("dpad");
+  const dUp = document.getElementById("dpad-up");
+  const dDown = document.getElementById("dpad-down");
+  const dLeft = document.getElementById("dpad-left");
+  const dRight = document.getElementById("dpad-right");
+  function bindDpad(btn, nx, ny) {
+    if (!btn) return;
+    const press = (e) => { e.preventDefault(); handleDirectionChange(nx, ny); };
+    btn.addEventListener("touchstart", press, { passive: false });
+    btn.addEventListener("mousedown", press);
+  }
+  bindDpad(dUp, 0, -1); bindDpad(dDown, 0, 1); bindDpad(dLeft, -1, 0); bindDpad(dRight, 1, 0);
+
   // Swipe controls on canvas
   canvas.addEventListener(
     "touchstart",

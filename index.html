@@ -75,6 +75,14 @@
       </div>
       <canvas id="game-canvas" width="600" height="600"></canvas>
 
+      <!-- On-screen D-pad for mobile -->
+      <div id="dpad" aria-label="D-pad" class="u-hidden">
+        <button id="dpad-up" class="dpad-btn" aria-label="Up">▲</button>
+        <button id="dpad-left" class="dpad-btn" aria-label="Left">◀</button>
+        <button id="dpad-right" class="dpad-btn" aria-label="Right">▶</button>
+        <button id="dpad-down" class="dpad-btn" aria-label="Down">▼</button>
+      </div>
+
       <!-- The overlay uses a lower z-index so HUD controls stay clickable while paused -->
       <div id="overlay" class="overlay hidden" aria-hidden="true">
         <div class="overlay-card">
