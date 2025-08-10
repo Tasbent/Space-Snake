@@ -291,6 +291,27 @@
   let chainUntil = 0;
   let enabledPowerKinds = [];
 
+  // Power-star metadata for UI lists
+  const POWER_META = {
+    shield: { emoji: "🛡️", title: "Shield", desc: "Blocks one hit", star: "🟡" },
+    magnet: { emoji: "🧲", title: "Magnet", desc: "Attract stars 8s", star: "🔵" },
+    slowmo: { emoji: "🐢", title: "Slow‑mo", desc: "Slow time 6s", star: "🟢" },
+    phase: { emoji: "🌀", title: "Phase", desc: "Pass through self 5s", star: "🟣" },
+    warp: { emoji: "⚡", title: "Warp", desc: "+1 blink (F)", star: "⚪" },
+    stasis: { emoji: "🧊", title: "Stasis", desc: "Freeze hazards 2.5s", star: "🔷" },
+    drone: { emoji: "🤖", title: "Drone", desc: "Auto‑collect 6s", star: "🔶" },
+    fuel: { emoji: "⛽", title: "Fuel Boost", desc: "Speed burst 4s", star: "🟠" },
+    doublescore: { emoji: "✖️2", title: "Double Score", desc: "2× points 8s", star: "⭐" },
+    chain: { emoji: "⛓️", title: "Chain", desc: "Bonus for quick grabs", star: "✨" },
+  };
+
+  function renderPowerListHTML(kinds) {
+    return kinds.map((k) => {
+      const i = POWER_META[k] || { emoji: "★", title: k, desc: "", star: "★" };
+      return `<div class="intermission-item"><div class="icon">${i.emoji}</div><div class="star">${i.star}</div><div class="meta"><div class="title">${i.title}</div><div class="desc">${i.desc}</div></div></div>`;
+    }).join("");
+  }
+
   function applyLevelConfig(index, announce = false) {
     const cfg = CAMPAIGN[index] || CAMPAIGN[0];
     theme = cfg.theme || "space";
@@ -335,11 +356,21 @@
         overlay.classList.remove("hidden");
         overlay.setAttribute("aria-hidden", "false");
         overlayTitle.textContent = `Level ${index + 1}`;
+        const startList = document.getElementById("start-list");
+        const kinds = enabledPowerKinds;
         if (index === 0) {
-          overlaySubtitle.textContent = `Goal: Collect ${cfg.target} stars.\nUse Arrows or WASD to move. You wrap at the edges.\nExpect cool space twists: warp gates, comets, meteor showers, black holes, and special stars as you progress.`;
+          overlaySubtitle.textContent = `Goal: Collect ${cfg.target} stars.\nUse Arrows or WASD to move. You wrap at the edges.`;
+          if (startList) {
+            startList.classList.remove("u-hidden");
+            startList.innerHTML = renderPowerListHTML(kinds);
+          }
           if (startButton) startButton.classList.remove("u-hidden");
         } else {
-          overlaySubtitle.textContent = `Goal: Collect ${cfg.target} stars. New space twists unlock each level.`;
+          overlaySubtitle.textContent = `Goal: Collect ${cfg.target} stars. Power-stars available this level:`;
+          if (startList) {
+            startList.classList.remove("u-hidden");
+            startList.innerHTML = renderPowerListHTML(kinds);
+          }
           if (startButton) startButton.classList.add("u-hidden");
         }
       }
@@ -1123,11 +1154,7 @@
             const nextIdx = Math.min(levelIndex + 1, CAMPAIGN.length - 1);
             applyLevelConfig(nextIdx);
             const kinds = enabledPowerKinds;
-            intermissionShop.innerHTML = kinds.map(k => {
-              const emoji = { shield:"🛡️", magnet:"🧲", slowmo:"🐢", phase:"🌀", warp:"⚡", stasis:"🧊", drone:"🤖", fuel:"⛽", doublescore:"✖️2", chain:"⛓️" }[k] || "★";
-              const title = k === 'doublescore' ? 'Double Score' : (k.charAt(0).toUpperCase() + k.slice(1));
-              return `<div class="intermission-item"><div class="icon">${emoji}</div><div class="meta"><div class="title">${title}</div></div></div>`;
-            }).join("");
+            intermissionShop.innerHTML = renderPowerListHTML(kinds);
             // restore current level config after preview
             applyLevelConfig(levelIndex);
           }
