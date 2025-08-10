@@ -39,14 +39,19 @@ body {
 }
 
 .hud {
-  background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+  background: 
+    linear-gradient(180deg, rgba(2,6,23,0.55), rgba(2,6,23,0.25)),
+    url('assets/spacebg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   border: 1px solid rgba(255,255,255,0.12);
   padding: 16px;
   border-radius: 16px;
   display: grid;
   grid-template-columns: 1fr;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   position: relative;
   z-index: 20;
 }
@@ -56,7 +61,7 @@ body {
   letter-spacing: 0.5px;
 }
 
-.hud-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.hud-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: start; }
 
 .stat {
   background: rgba(0,0,0,0.25);
@@ -94,7 +99,9 @@ body {
   gap: 6px;
   align-items: center;
   min-height: 28px;
+  min-width: 220px; /* reserve space to prevent layout shift when badges appear */
 }
+.loadout:empty { visibility: hidden; }
 .loadout .badge {
   display: inline-flex;
   align-items: center;
@@ -106,11 +113,7 @@ body {
   font-size: 12px;
 }
 
-.controls-hint {
-  grid-column: 1 / -1;
-  font-size: 12px;
-  color: var(--muted);
-}
+.controls-hint { display: none; }
 
 .settings {
   grid-column: 1 / -1;
@@ -199,15 +202,7 @@ canvas {
   position: relative;
 }
 
-.overlay {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(0,0,0,0.35);
-  backdrop-filter: blur(2px);
-  z-index: 10; /* below HUD */
-}
+.overlay { position: fixed; inset: 0; display: grid; place-items: center; background: transparent; backdrop-filter: none; z-index: 10; }
 
 .overlay.hidden {
   display: none;
@@ -215,12 +210,12 @@ canvas {
 
 .overlay-card {
   width: min(92vw, 420px);
-  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01));
-  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(17,24,39,0.9);
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: 16px;
   padding: 22px 20px;
   text-align: center;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
 }
 
 .overlay-title {
@@ -237,7 +232,8 @@ canvas {
 
 .overlay-subtitle { white-space: pre-line; }
 
-#start-button, #resume-button { margin-top: 10px; }
+#start-button, #resume-button, #restart-button { margin-top: 10px; }
+.overlay-card .btn { width: 100%; display: block; }
 
 .btn {
   padding: 10px 14px;
@@ -292,8 +288,10 @@ canvas {
 .panel-list { display: grid; gap: 6px; }
 
 .stack { display: grid; gap: 8px; }
+.stack .btn { width: 100%; }
 
 .intermission-shop { margin-top: 10px; display: grid; gap: 8px; }
+.overlay-card .panel-list { gap: 8px; }
 .intermission-item { display: grid; grid-template-columns: 24px 24px 1fr; align-items: center; gap: 8px; padding: 8px; background: rgba(0,0,0,0.92); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; }
 .intermission-item .star { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; }
 .intermission-item .icon { font-size: 18px; filter: drop-shadow(0 0 2px rgba(255,255,255,0.3)); }
@@ -318,30 +316,15 @@ canvas {
 /* combo UI removed */
 
 /* Objective bar */
-.objective {
-  grid-column: 1 / -1;
-  display: grid;
-  gap: 6px;
-}
+.objective { grid-column: 1 / -1; display: grid; gap: 4px; margin-top: 0; justify-items: center; }
 
-.objective-label {
-  font-size: 13px;
-  color: var(--text);
-}
+.objective-label { font-size: 14px; color: var(--text); font-weight: 600; text-align: center; }
 
-.objective-bar {
-  width: 100%;
-  height: 10px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 999px;
-  overflow: hidden;
+.objective-stars { display: grid; grid-auto-flow: column; gap: 6px; align-items: center; justify-content: center; min-height: 20px; }
+.objective-stars .star {
+  width: 16px; height: 16px; border-radius: 4px; display: grid; place-items: center;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14);
+  font-size: 12px; color: #fde68a;
 }
-
-.objective-fill {
-  width: 0%;
-  height: 100%;
-  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
-  transition: width 160ms linear;
-}
+.objective-stars .star.filled { background: rgba(250, 204, 21, 0.18); border-color: rgba(250, 204, 21, 0.5); box-shadow: 0 0 6px rgba(250, 204, 21, 0.35); }
 

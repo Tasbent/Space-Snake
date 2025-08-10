@@ -58,12 +58,13 @@
   const modeSelect = document.getElementById("mode-select");
   const multiplierValueEl = document.getElementById("multiplier-value");
   const timerWrap = document.getElementById("timer-wrap");
+  const objectiveStarsEl = document.getElementById("objective-stars");
   const timerValueEl = document.getElementById("timer-value");
   const toastContainer = document.getElementById("toast-container");
   // combo removed
   const objectiveWrap = document.getElementById("objective-wrap");
   const objectiveLabel = document.getElementById("objective-label");
-  const objectiveFill = document.getElementById("objective-fill");
+  const objectiveFill = null; // replaced by objectiveStarsEl
 
   // Debug: surface runtime errors visibly in the UI
   window.addEventListener("error", (e) => {
@@ -90,7 +91,7 @@
   let GRID_SIZE = 20;
   let CELL_PX = canvas.width / GRID_SIZE;
   let BASE_MOVE_INTERVAL_MS = 120;
-  const MIN_MOVE_INTERVAL_MS = 60;
+  const MIN_MOVE_INTERVAL_MS = 20;
   const HIGH_SCORE_KEY = "snakeHighScoreV1";
   const MAX_OBSTACLES = 20;
   const PREFS_KEY = {
@@ -141,6 +142,7 @@
   let queuedDirection = { x: 1, y: 0 };
   let obstacles = [];
   let food = spawnFood();
+  let snakeBaseColor = "#00d38d"; // dynamic: changes to latest star color
   let score = 0;
   let lastMoveAt = 0;
   let running = true;
@@ -195,67 +197,80 @@
   let theme = "space"; // force space theme
   let rushTimerMs = 60000; // 60 seconds
   let foods = []; // extra foods
+  // External asset: player ship (local file provided in assets/)
+  let shipImg = new Image();
+  let shipReady = false;
+  function loadShipForLevel(levelIdx) {
+    const idx = Math.max(0, Math.min(5, levelIdx));
+    const file = idx === 0 ? "ship.png" : `ship${idx + 1}.png`;
+    shipReady = false;
+    shipImg = new Image();
+    shipImg.onload = () => { shipReady = true; };
+    shipImg.onerror = () => { shipReady = false; };
+    shipImg.src = `assets/${file}`;
+  }
+  loadShipForLevel(0);
   // Campaign with natural progression and gated features
   const CAMPAIGN = [
     {
       theme: "space",
-      target: 10,
+      target: 5,
       grid: 16,
-      baseSpeed: 170,
+      baseSpeed: 200,
       wrap: "none",
       obstacles: false,
       features: { bonusFood: false, extraFoods: false, planets: false, warpGates: false, meteors: false, blackHoles: false, comet: false },
-      intro: "Welcome! Small map, slow speed, no obstacles.",
+      intro: "Welcome! Small map, slow speed, no obstacles. Press P to pause the game.",
     },
     {
       theme: "space",
-      target: 12,
+      target: 5,
       grid: 18,
-      baseSpeed: 150,
+      baseSpeed: 180,
       wrap: "wrap",
       obstacles: false,
       features: { bonusFood: true, extraFoods: false, planets: false, warpGates: false, meteors: false, blackHoles: false, comet: false },
-      intro: "Wrap unlocked. Bonus stars may appear.",
+      intro: "Wrap unlocked. Press P to pause the game.",
     },
     {
       theme: "space",
-      target: 14,
+      target: 5,
       grid: 20,
-      baseSpeed: 135,
+      baseSpeed: 160,
       wrap: "wrap",
       obstacles: true,
       features: { bonusFood: true, extraFoods: true, planets: true, warpGates: false, meteors: false, blackHoles: false, comet: false },
-      intro: "Obstacles appear and gravity wells tug lightly.",
+      intro: "Obstacles appear. Press P to pause the game.",
     },
     {
       theme: "space",
-      target: 16,
+      target: 5,
       grid: 20,
-      baseSpeed: 120,
+      baseSpeed: 160,
       wrap: "wrap",
       obstacles: true,
       features: { bonusFood: true, extraFoods: true, planets: true, warpGates: true, meteors: false, blackHoles: false, comet: true },
-      intro: "Warp gates and comets join the fun.",
+      intro: "Warp gates and comets join the fun. Press P to pause the game.",
     },
     {
       theme: "space",
-      target: 18,
+      target: 5,
       grid: 22,
-      baseSpeed: 110,
+      baseSpeed: 160,
       wrap: "wrap",
       obstacles: true,
       features: { bonusFood: true, extraFoods: true, planets: true, warpGates: true, meteors: true, blackHoles: false, comet: true },
-      intro: "Meteor showers incoming!",
+      intro: "Meteor showers incoming! Press P to pause the game.",
     },
     {
       theme: "space",
-      target: 20,
+      target: 5,
       grid: 24,
-      baseSpeed: 100,
+      baseSpeed: 160,
       wrap: "wrap",
       obstacles: true,
       features: { bonusFood: true, extraFoods: true, planets: true, warpGates: true, meteors: true, blackHoles: true, comet: true },
-      intro: "Black holes and everything at once.",
+      intro: "Black holes and everything at once. Press P to pause the game.",
     },
   ];
   let levelIndex = 0;
@@ -314,6 +329,8 @@
 
   function applyLevelConfig(index, announce = false) {
     const cfg = CAMPAIGN[index] || CAMPAIGN[0];
+    // Load the appropriate ship sprite for this level
+    loadShipForLevel(index);
     theme = cfg.theme || "space";
     if (themeSelect) themeSelect.value = theme;
     GRID_SIZE = cfg.grid || GRID_SIZE;
@@ -359,7 +376,7 @@
         const startList = document.getElementById("start-list");
         const kinds = enabledPowerKinds;
         if (index === 0) {
-          overlaySubtitle.textContent = `Goal: Collect ${cfg.target} stars.\nUse Arrows or WASD to move. You wrap at the edges.`;
+          overlaySubtitle.textContent = `Goal: Collect ${cfg.target} stars.\nUse Arrows or WASD to move. Press P to pause the game.`;
           if (startList) {
             startList.classList.remove("u-hidden");
             startList.innerHTML = renderPowerListHTML(kinds);
@@ -418,8 +435,12 @@
     // objective HUD
     if (objectiveWrap) {
       if (objective.type === "collect") {
-        if (objectiveLabel) objectiveLabel.textContent = `Objective: Collect ${objective.target} stars (${objective.progress}/${objective.target})`;
-        if (objectiveFill) objectiveFill.style.width = `${Math.min(100, (objective.progress / objective.target) * 100)}%`;
+        if (objectiveLabel) objectiveLabel.textContent = `Collect ${objective.target} stars (${objective.progress}/${objective.target})`;
+        if (objectiveStarsEl) {
+          const filled = Math.min(objective.progress, objective.target);
+          const cells = Array.from({ length: objective.target }, (_, i) => `<span class="star ${i < filled ? "filled" : ""}">★</span>`).join("");
+          objectiveStarsEl.innerHTML = cells;
+        }
       }
       objectiveWrap.classList.toggle("u-hidden", !objective || !objective.type);
     }
@@ -427,6 +448,8 @@
     // Render loadout badges
     if (loadoutEl) {
       const items = [];
+      // Reserve width so the HUD doesn't shift when first badge appears
+      loadoutEl.style.minWidth = '140px';
       if (hasShield) items.push({ icon: "🛡️", label: "Shield" });
       if (performance.now() < magnetUntil) items.push({ icon: "🧲", label: "Magnet" });
       if (performance.now() < slowmoUntil) items.push({ icon: "🐢", label: "Slow‑mo" });
@@ -463,22 +486,33 @@
     }
   }
 
-  function drawCell(x, y, color1, color2) {
-    const px = x * CELL_PX;
-    const py = y * CELL_PX;
-
-    // Cell base
-    const grad = ctx.createLinearGradient(px, py, px, py + CELL_PX);
-    grad.addColorStop(0, color1);
-    grad.addColorStop(1, color2);
-    ctx.fillStyle = grad;
-    ctx.fillRect(px + 1, py + 1, CELL_PX - 2, CELL_PX - 2);
-
-    // subtle outline to increase contrast between adjacent cells
-    ctx.strokeStyle = "rgba(255,255,255,0.06)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(px + 0.5, py + 0.5, CELL_PX - 1, CELL_PX - 1);
-  }
+function drawCell(x, y, color1, color2) {
+  // Draw a small spaceship diamond/chevron to give a space vibe
+  const px = x * CELL_PX;
+  const py = y * CELL_PX;
+  const cx = px + CELL_PX / 2;
+  const cy = py + CELL_PX / 2;
+  const w = CELL_PX * 0.78;
+  const h = CELL_PX * 0.78;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(Math.PI / 4);
+  const grad = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+  grad.addColorStop(0, color1);
+  grad.addColorStop(1, color2);
+  ctx.fillStyle = grad;
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, -h / 2);
+  ctx.lineTo(w / 2, 0);
+  ctx.lineTo(0, h / 2);
+  ctx.lineTo(-w / 2, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
 
   // New: wide star (spans 2 cells horizontally) requiring angled approach
   function drawWideStar(leftX, y, color = "#ffe066") {
@@ -519,15 +553,105 @@
     ctx.restore();
   }
 
+  // Spaceship segment drawing for the snake
+  function drawShipSegment(cellX, cellY, isHead, fillColor) {
+    const px = cellX * CELL_PX;
+    const py = cellY * CELL_PX;
+    const cx = px + CELL_PX / 2;
+    const cy = py + CELL_PX / 2;
+    const w = CELL_PX * (isHead ? 0.86 : 0.78);
+    const h = CELL_PX * (isHead ? 0.86 : 0.78);
+    // Orient by current direction for a simple ship nose
+    let ang = 0; // up
+    if (direction.x === 1) ang = Math.PI / 2; // right
+    else if (direction.x === -1) ang = -Math.PI / 2; // left
+    else if (direction.y === 1) ang = Math.PI; // down
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(ang);
+    if (shipReady) {
+      const scale = (isHead ? 0.95 : 0.85) * (CELL_PX / 112); // source asset roughly 112px high
+      const wImg = shipImg.width * scale;
+      const hImg = shipImg.height * scale;
+      ctx.drawImage(shipImg, -wImg / 2, -hImg / 2, wImg, hImg);
+    } else {
+      // Fallback: stylized spaceship (fuselage + wings + thruster)
+      ctx.lineWidth = 1;
+      // Fuselage
+      ctx.fillStyle = fillColor;
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      const bodyW = w * 0.42;
+      const bodyH = h * 0.7;
+      ctx.beginPath();
+      ctx.moveTo(0, -h * 0.5);          // nose tip
+      ctx.lineTo(bodyW * 0.5, -bodyH*0.2);
+      ctx.lineTo(bodyW * 0.5, bodyH*0.5);
+      ctx.lineTo(-bodyW * 0.5, bodyH*0.5);
+      ctx.lineTo(-bodyW * 0.5, -bodyH*0.2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // Wings
+      ctx.beginPath();
+      ctx.moveTo(-bodyW*0.5, -bodyH*0.05);
+      ctx.lineTo(-w*0.6, bodyH*0.2);
+      ctx.lineTo(-bodyW*0.5, bodyH*0.35);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(bodyW*0.5, -bodyH*0.05);
+      ctx.lineTo(w*0.6, bodyH*0.2);
+      ctx.lineTo(bodyW*0.5, bodyH*0.35);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // Cockpit window
+      if (isHead) {
+        ctx.fillStyle = "#0b1020";
+        ctx.beginPath();
+        ctx.arc(0, -bodyH*0.22, Math.max(2, CELL_PX*0.07), 0, Math.PI*2);
+        ctx.fill();
+      }
+      // Thruster flame (only when moving and not head flash)
+      ctx.beginPath();
+      const flame = Math.max(3, CELL_PX*0.12) * (0.7 + 0.3*Math.random());
+      ctx.moveTo(-bodyW*0.25, bodyH*0.52);
+      ctx.lineTo(0, bodyH*0.52 + flame);
+      ctx.lineTo(bodyW*0.25, bodyH*0.52);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(0, bodyH*0.52, 0, bodyH*0.52 + flame);
+      grad.addColorStop(0, "#fef08a");
+      grad.addColorStop(1, "#f97316");
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Per-level background images (user-provided in assets/level1.png .. level6.png)
+  const levelBackgrounds = Array.from({ length: 6 }).map((_, i) => {
+    const img = new Image();
+    img.src = `assets/level${i + 1}.png`;
+    return img;
+  });
+
   function drawBoardBackground() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (theme === "space") {
+      // Try to draw level-specific background if loaded
+      const bg = levelBackgrounds[levelIndex];
+      if (bg && bg.complete && bg.naturalWidth > 0) {
+        // cover the canvas
+        ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+      } else {
       // Deep space gradient
       const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
       g.addColorStop(0, "#0b1020");
       g.addColorStop(1, "#030712");
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
       // Random starfield each frame (subtle twinkle)
       for (let i = 0; i < 80; i += 1) {
         const x = Math.random() * canvas.width;
@@ -578,26 +702,33 @@
   function drawObstacles() {
     for (const obs of obstacles) {
       if (theme === "space") {
-        // draw as small asteroids
+        // Draw hazardous obstacles as pulsing red hexes with skull icon to signal danger
         const cx = obs.x * CELL_PX + CELL_PX / 2;
         const cy = obs.y * CELL_PX + CELL_PX / 2;
         const r = Math.max(5, CELL_PX * 0.35);
+        const pulse = 0.6 + 0.4 * Math.abs(Math.sin(performance.now() * 0.004));
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(((obs.x + obs.y) * 13 + performance.now() * 0.0006) % (Math.PI * 2));
-        ctx.fillStyle = "#6b7280";
         ctx.beginPath();
         for (let i = 0; i < 6; i += 1) {
           const ang = (Math.PI * 2 * i) / 6;
-          const rad = r * (0.8 + Math.random() * 0.25);
+          const rad = r * (0.9);
           const x = Math.cos(ang) * rad;
           const y = Math.sin(ang) * rad;
           if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
         ctx.closePath();
-        ctx.shadowColor = "#94a3b8";
-        ctx.shadowBlur = 6;
+        ctx.fillStyle = `rgba(239,68,68,${pulse})`;
+        ctx.strokeStyle = "#7f1d1d";
+        ctx.lineWidth = 2;
         ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#111827";
+        ctx.font = `${Math.max(10, CELL_PX * 0.6)}px system-ui`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("☠", 0, 1);
         ctx.restore();
       } else {
         let c1 = "#64748b", c2 = "#334155";
@@ -717,10 +848,11 @@
   function setGameOver(message) {
     running = false;
     gameOver = true;
-    overlayTitle.textContent = "Level Complete";
-    overlaySubtitle.textContent = `Collected ${objective.target} stars!`;
-    resumeButton.classList.add("u-hidden");
-    restartButton.classList.remove("u-hidden");
+    overlayTitle.textContent = "Game Over";
+    overlaySubtitle.textContent = message || "Try again";
+    if (resumeButton) resumeButton.classList.add("u-hidden");
+    if (restartButton) restartButton.classList.remove("u-hidden");
+    if (intermissionActions) intermissionActions.classList.add("u-hidden");
     overlay.classList.remove("hidden");
     playSound("gameover");
     triggerHaptic();
@@ -734,8 +866,9 @@
     if (paused) {
       overlayTitle.textContent = "Paused";
       overlaySubtitle.textContent = "Press P or tap Resume to continue";
-      resumeButton.classList.remove("u-hidden");
-      restartButton.classList.add("u-hidden");
+      if (resumeButton) resumeButton.classList.remove("u-hidden");
+      if (restartButton) restartButton.classList.remove("u-hidden");
+      if (startButton) startButton.classList.add("u-hidden");
       if (nextLevelButton) nextLevelButton.classList.add("u-hidden");
       if (intermissionActions) intermissionActions.classList.add("u-hidden");
       if (intermissionShop) intermissionShop.classList.add("u-hidden");
@@ -744,6 +877,16 @@
     } else {
       overlay.classList.add("hidden");
       overlay.setAttribute("aria-hidden", "true");
+      // Wait for the next user direction before resuming movement
+      running = false;
+      const resumeOnNextArrow = (e) => {
+        const k = e.key;
+        if (k === "ArrowUp" || k === "w" || k === "W" || k === "ArrowDown" || k === "s" || k === "S" || k === "ArrowLeft" || k === "a" || k === "A" || k === "ArrowRight" || k === "d" || k === "D") {
+          running = true;
+          window.removeEventListener("keydown", resumeOnNextArrow);
+        }
+      };
+      window.addEventListener("keydown", resumeOnNextArrow);
     }
   }
 
@@ -762,7 +905,16 @@
     if (intermissionActions) intermissionActions.classList.add("u-hidden");
     if (intermissionShop) intermissionShop.classList.add("u-hidden");
     overlay.classList.add("hidden");
-    running = true;
+    // Wait for directional input before resuming
+    running = false;
+    const resumeOnNextArrow = (e) => {
+      const k = e.key;
+      if (k === "ArrowUp" || k === "w" || k === "W" || k === "ArrowDown" || k === "s" || k === "S" || k === "ArrowLeft" || k === "a" || k === "A" || k === "ArrowRight" || k === "d" || k === "D") {
+        running = true;
+        window.removeEventListener("keydown", resumeOnNextArrow);
+      }
+    };
+    window.addEventListener("keydown", resumeOnNextArrow);
     refreshHUD();
   }
 
@@ -810,7 +962,12 @@
     unlockAudio();
   });
 
-  restartButton.addEventListener("click", gameReset);
+  restartButton.addEventListener("click", () => {
+    levelIndex = 0;
+    objective = { type: "collect", target: CAMPAIGN[0].target, progress: 0 };
+    applyLevelConfig(0, true);
+    gameReset();
+  });
   resumeButton.addEventListener("click", () => setPaused(false));
   // removed pause button UI
   if (pauseButton) pauseButton.addEventListener("click", () => setPaused(running));
@@ -1138,24 +1295,44 @@
       starsCurrency += 1; // 1 star collected = 1 currency
       const mult = performance.now() < doubleScoreUntil ? 2 : 1;
       spawnTextPop(mult > 1 ? "★★" : "★", food.x, food.y, "#fde68a");
+      // change snake color to match latest collected star
+      snakeBaseColor = "#22c55e";
       // objective progress (collect stars)
       if (objective.type === "collect") {
         objective.progress += 1;
         if (objective.progress >= objective.target) {
-          // Complete level → show intermission actions (shop + continue)
-          overlayTitle.textContent = "Level Complete";
-          overlaySubtitle.textContent = `Collected ${objective.target} stars!`;
-          resumeButton.classList.add("u-hidden");
-          restartButton.classList.add("u-hidden");
-          if (nextLevelButton) nextLevelButton.classList.add("u-hidden");
-          if (intermissionActions) intermissionActions.classList.remove("u-hidden");
-          if (intermissionShop) {
-            // Hide collected-items section entirely per requirement
-            intermissionShop.classList.add("u-hidden");
+          // Complete level
+          if (levelIndex >= CAMPAIGN.length - 1) {
+            // Final win screen with trophy
+            overlayTitle.textContent = "Game Complete!";
+            if (overlaySubtitle) {
+              overlaySubtitle.innerHTML = `<img src=\"assets/trophy.png\" alt=\"Trophy\" class=\"trophy-img\"/>\nYou collected all stars across 6 levels.`;
+            }
+            if (resumeButton) resumeButton.classList.add("u-hidden");
+            if (startButton) startButton.classList.add("u-hidden");
+            if (intermissionActions) intermissionActions.classList.add("u-hidden");
+            if (intermissionShop) intermissionShop.classList.add("u-hidden");
+            if (restartButton) restartButton.classList.remove("u-hidden");
+            overlay.classList.remove("hidden");
+            running = false;
+            toast("Congratulations! You finished the game.");
+          } else {
+            // Intermission with Continue to next level
+            overlayTitle.textContent = "Level Complete";
+            overlaySubtitle.textContent = `Collected ${objective.target} stars!`;
+            if (resumeButton) resumeButton.classList.add("u-hidden");
+            if (restartButton) restartButton.classList.remove("u-hidden");
+            if (startButton) startButton.classList.add("u-hidden");
+            if (nextLevelButton) nextLevelButton.classList.add("u-hidden");
+            if (intermissionActions) intermissionActions.classList.remove("u-hidden");
+            if (intermissionShop) {
+              // Hide collected-items section entirely per requirement
+              intermissionShop.classList.add("u-hidden");
+            }
+            overlay.classList.remove("hidden");
+            running = false;
+            toast("Level complete! Review next level's power-stars");
           }
-          overlay.classList.remove("hidden");
-          running = false;
-          toast("Level complete! Review next level's power-stars");
         }
       }
       refreshHUD();
@@ -1200,11 +1377,17 @@
         bonusFood = spawnFood();
         bonusFood.expiresAt = performance.now() + 3500; // 3.5s
       }
-      // Spawn a power-star sometimes
-      if (enabledPowerKinds.length && Math.random() < 0.2 && powerStars.length < 2) {
-        const kind = enabledPowerKinds[Math.floor(Math.random() * enabledPowerKinds.length)];
-        const p = spawnFood();
-        powerStars.push({ x: p.x, y: p.y, kind });
+      // Maintain target ratio of special stars on board (>=50% early levels, 75% from level 4+)
+      {
+        const desiredSpecialRatio = (levelIndex + 1) >= 4 ? 0.75 : 0.5;
+        const total = 1 /*food*/ + foods.length + powerStars.length + (bonusFood ? 1 : 0);
+        const currentRatio = powerStars.length / Math.max(1, total);
+        const needMore = currentRatio < desiredSpecialRatio;
+        if (enabledPowerKinds.length && needMore && powerStars.length < 4 && Math.random() < 0.7) {
+          const kind = enabledPowerKinds[Math.floor(Math.random() * enabledPowerKinds.length)];
+          const p = spawnFood();
+          powerStars.push({ x: p.x, y: p.y, kind });
+        }
       }
       // combo removed
       refreshHUD();
@@ -1291,16 +1474,16 @@
         if (ps.x === newHead.x && ps.y === newHead.y) {
           // Activate
           const nowT = performance.now();
-          if (ps.kind === "shield") { hasShield = true; spawnTextPop("🛡️", ps.x, ps.y, "#93c5fd"); }
-          else if (ps.kind === "magnet") { magnetUntil = nowT + 8000; spawnTextPop("🧲", ps.x, ps.y, "#60a5fa"); }
-          else if (ps.kind === "slowmo") { slowmoUntil = nowT + 6000; spawnTextPop("🐢", ps.x, ps.y, "#a7f3d0"); }
-          else if (ps.kind === "phase") { phaseShiftUntil = nowT + 5000; spawnTextPop("🌀", ps.x, ps.y, "#93c5fd"); }
-          else if (ps.kind === "warp") { warpCharges += 1; spawnTextPop("⚡+1", ps.x, ps.y, "#93c5fd"); }
-          else if (ps.kind === "stasis") { stasisUntil = nowT + 2500; spawnTextPop("🧊", ps.x, ps.y, "#93c5fd"); }
-          else if (ps.kind === "drone") { droneUntil = nowT + 6000; spawnTextPop("🤖", ps.x, ps.y, "#93c5fd"); }
-          else if (ps.kind === "fuel") { speedBoostUntil = nowT + 4000; spawnTextPop("⛽", ps.x, ps.y, "#fbbf24"); }
-          else if (ps.kind === "doublescore") { doubleScoreUntil = nowT + 8000; spawnTextPop("2x", ps.x, ps.y, "#fde68a"); }
-          else if (ps.kind === "chain") { chainUntil = nowT + 6000; spawnTextPop("Chain", ps.x, ps.y, "#fde68a"); }
+          if (ps.kind === "shield") { hasShield = true; spawnTextPop("🛡️", ps.x, ps.y, "#93c5fd"); snakeBaseColor = "#93c5fd"; }
+          else if (ps.kind === "magnet") { magnetUntil = nowT + 8000; spawnTextPop("🧲", ps.x, ps.y, "#60a5fa"); snakeBaseColor = "#60a5fa"; }
+          else if (ps.kind === "slowmo") { slowmoUntil = nowT + 6000; spawnTextPop("🐢", ps.x, ps.y, "#a7f3d0"); snakeBaseColor = "#a7f3d0"; }
+          else if (ps.kind === "phase") { phaseShiftUntil = nowT + 5000; spawnTextPop("🌀", ps.x, ps.y, "#93c5fd"); snakeBaseColor = "#93c5fd"; }
+          else if (ps.kind === "warp") { warpCharges += 1; spawnTextPop("⚡+1", ps.x, ps.y, "#93c5fd"); snakeBaseColor = "#93c5fd"; }
+          else if (ps.kind === "stasis") { stasisUntil = nowT + 2500; spawnTextPop("🧊", ps.x, ps.y, "#93c5fd"); snakeBaseColor = "#93c5fd"; }
+          else if (ps.kind === "drone") { droneUntil = nowT + 6000; spawnTextPop("🤖", ps.x, ps.y, "#93c5fd"); snakeBaseColor = "#93c5fd"; }
+          else if (ps.kind === "fuel") { speedBoostUntil = nowT + 4000; spawnTextPop("⛽", ps.x, ps.y, "#fbbf24"); snakeBaseColor = "#fbbf24"; }
+          else if (ps.kind === "doublescore") { doubleScoreUntil = nowT + 8000; spawnTextPop("2x", ps.x, ps.y, "#fde68a"); snakeBaseColor = "#fde68a"; }
+          else if (ps.kind === "chain") { chainUntil = nowT + 6000; spawnTextPop("Chain", ps.x, ps.y, "#fde68a"); snakeBaseColor = "#fde68a"; }
         } else remain.push(ps);
       }
       powerStars = remain;
@@ -1317,8 +1500,10 @@
         spawnTextPop("★★★", blinkStar.x, blinkStar.y, "#fff59d");
         emitParticles(blinkStar.x, blinkStar.y, "#fde68a");
         blinkStar = null;
+        if (objective.type === "collect") objective.progress += 1;
         refreshHUD();
         playSound("eat");
+        snakeBaseColor = "#facc15";
       }
     }
 
@@ -1329,8 +1514,10 @@
       spawnTextPop("★★★★", ringStar.x, ringStar.y, "#bbf7d0");
       emitParticles(ringStar.x, ringStar.y, "#86efac");
       ringStar = null;
+      if (objective.type === "collect") objective.progress += 1;
       refreshHUD();
       playSound("eat");
+      snakeBaseColor = "#86efac";
     }
 
     // Nova Core (+5) — clears nearby hazards
@@ -1341,6 +1528,8 @@
       obstacles = obstacles.filter(o => Math.abs(o.x - novaCore.x) + Math.abs(o.y - novaCore.y) > 2);
       spaceMines = spaceMines.filter(m => Math.abs(m.x - novaCore.x) + Math.abs(m.y - novaCore.y) > 2);
       novaCore = null; playSound("eat");
+      snakeBaseColor = "#f59e0b";
+      if (objective.type === "collect") objective.progress += 1;
     }
 
     // Quantum Pair: must collect both within 2s
@@ -1354,6 +1543,7 @@
           spawnTextPop("Pair!", newHead.x, newHead.y, "#a5b4fc");
         } else {
           score += 4; starsCurrency += 4; refreshHUD();
+          if (objective.type === "collect") objective.progress += 1;
           quantumPair = null; playSound("eat");
         }
       }
@@ -1369,6 +1559,9 @@
         spawnTextPop(`${idx+1}/${constellation.points.length}`, p.x, p.y, "#93c5fd");
         if (constellation.nextIndex >= constellation.points.length) {
           score += 6; starsCurrency += 6; playSound("eat"); refreshHUD();
+          if (objective.type === "collect") {
+            objective.progress += 1;
+          }
           constellation = null; spawnConfetti();
         }
       }
@@ -1592,9 +1785,7 @@
     } else {
       drawCell(food.x, food.y, "#ef4444", "#b91c1c");
     }
-    if (bonusFood) {
-      if (theme === "space") drawStar(bonusFood.x, bonusFood.y, "#a5b4fc"); else drawCell(bonusFood.x, bonusFood.y, "#fbbf24", "#f59e0b");
-    }
+    // hide legacy bonusFood rendering to favor new special power-stars
     for (const f of foods) {
       if (theme === "space") drawStar(f.x, f.y, "#60a5fa"); else drawCell(f.x, f.y, "#fb7185", "#e11d48");
     }
@@ -1686,39 +1877,13 @@
 
     renderTrail();
 
-    // draw snake
+    // draw snake (spaceship segments)
     for (let i = 0; i < snake.length; i += 1) {
       const segment = snake[i];
       const isHead = i === 0;
-      // draw segments as solid bright squares for maximum visibility
-      const sx = segment.x * CELL_PX;
-      const sy = segment.y * CELL_PX;
-      if (theme === "neon" || theme === "space") {
-        ctx.shadowColor = isHead ? "#22d3ee" : "#14b8a6";
-        ctx.shadowBlur = isHead ? 12 : 6;
-      } else {
-        ctx.shadowBlur = 0;
-      }
-      // flash when invincible; removed multiplier color logic
       const flashing = theme === "space" && isHead && performance.now() < invincibleUntil && Math.floor(performance.now() / 150) % 2 === 0;
-      ctx.fillStyle = flashing ? "#93c5fd" : (isHead ? "#00ff9a" : "#00d38d");
-      ctx.fillRect(sx + 1, sy + 1, CELL_PX - 2, CELL_PX - 2);
-
-      if (isHead) {
-        // small eyes for fun
-        const cx = segment.x * CELL_PX + CELL_PX / 2;
-        const cy = segment.y * CELL_PX + CELL_PX / 2;
-        ctx.fillStyle = "#0b1020";
-        const eyeOffset = 5;
-        ctx.beginPath();
-        ctx.arc(cx - eyeOffset, cy - 4, 2, 0, Math.PI * 2);
-        ctx.arc(cx + eyeOffset, cy - 4, 2, 0, Math.PI * 2);
-        ctx.fill();
-        // outline head to guarantee visibility
-        ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(segment.x * CELL_PX + 1, segment.y * CELL_PX + 1, CELL_PX - 2, CELL_PX - 2);
-      }
+      const color = flashing ? "#93c5fd" : snakeBaseColor;
+      drawShipSegment(segment.x, segment.y, isHead, color);
     }
     renderParticles();
     renderTextPops();
