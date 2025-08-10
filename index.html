@@ -10,21 +10,29 @@
   <body>
     <div id="app">
       <div class="hud">
-        <div class="title">Snake</div>
-        <div class="score">
-          Score: <span id="score-value">0</span>
-          &nbsp;•&nbsp; High: <span id="high-score-value">0</span>
-          &nbsp;•&nbsp; Level: <span id="level-value">1</span>
-          &nbsp;•&nbsp; x<span id="multiplier-value">1</span>
-          <span id="timer-wrap" class="chip u-hidden">Time: <span id="timer-value">60</span>s</span>
-          <span class="chip">Stardust: <span id="stardust-value">0</span></span>
-          <button id="pause-button" class="btn btn-small" title="Pause/Resume">Pause</button>
-          <button id="shop-toggle" class="btn btn-small" title="Open Shop">Shop</button>
-          <button id="levels-toggle" class="btn btn-small" title="Choose Level">Levels</button>
-          <button id="leaderboard-toggle" class="btn btn-small" title="Leaderboard">Leaderboard</button>
+        
+        <div class="hud-stats">
+          <div class="stat stat-score">
+            <div class="stat-label">Score</div>
+            <div id="score-value" class="stat-value">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">High</div>
+            <div id="high-score-value" class="stat-value">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Level</div>
+            <div id="level-value" class="stat-value">1</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Stars</div>
+            <div id="stars-value" class="stat-value">0</div>
+          </div>
         </div>
+        <div id="timer-wrap" class="chip u-hidden">Time: <span id="timer-value">60</span>s</div>
+        <div id="loadout" class="loadout" aria-label="Purchased items this level"></div>
         <div class="controls-hint">Arrows or WASD to move • R to restart • P to pause</div>
-        <div class="settings">
+        <div class="settings u-hidden">
           <label class="select">Wrap
             <select id="wrap-mode-select">
               <option value="none">None</option>
@@ -62,10 +70,7 @@
           </label>
           
         </div>
-        <div id="combo-wrap" class="combo">
-          <div class="combo-bar"><div id="combo-fill" class="combo-fill"></div></div>
-          <div id="combo-label" class="combo-label">Combo x1</div>
-        </div>
+        
 
         <div id="objective-wrap" class="objective">
           <div id="objective-label" class="objective-label">Objective: Collect 10 stars</div>
@@ -79,37 +84,32 @@
         <div class="overlay-card">
           <div id="overlay-title" class="overlay-title"></div>
           <div id="overlay-subtitle" class="overlay-subtitle"></div>
+          <div id="start-list" class="intermission-shop u-hidden"></div>
+          <button id="start-button" class="btn">Start</button>
           <button id="resume-button" class="btn btn-secondary u-hidden">Resume</button>
-          <button id="next-level-button" class="btn u-hidden">Next Level</button>
+          <div id="intermission-actions" class="stack u-hidden">
+            <div id="intermission-hint" class="panel-hint">Collect these power-stars next level:</div>
+            <div id="intermission-list" class="panel-list"></div>
+            <button id="continue-button" class="btn">Continue</button>
+          </div>
+          <div id="intermission-shop" class="intermission-shop u-hidden"></div>
           <button id="restart-button" class="btn">Play Again</button>
         </div>
       </div>
 
       <div id="toast-container" class="toasts"></div>
 
-      <div id="shop" class="shop u-hidden">
-        <div class="shop-title">Shop</div>
-        <div class="shop-items">
-          <button id="buy-shield" class="btn btn-small">Shield (5)</button>
-          <button id="buy-magnet" class="btn btn-small">Magnet 8s (5)</button>
-          <button id="buy-slowmo" class="btn btn-small">Slow‑mo 6s (5)</button>
-        </div>
-        <div class="shop-hint">Press 1/2/3 to quick-buy. Close Shop to resume play.</div>
-      </div>
+      
 
       <div id="levels" class="panel u-hidden">
         <div class="panel-title">Levels</div>
         <div id="levels-list" class="panel-list"></div>
       </div>
 
-      <div id="leaderboard" class="panel u-hidden">
-        <div class="panel-title">Leaderboard</div>
-        <div class="panel-hint">Top 10 for current mode</div>
-        <div id="leaderboard-list" class="panel-list"></div>
-      </div>
+      
     </div>
 
-    <script src="snake.js?v=3" defer></script>
+    <script src="snake.js?v=5" defer></script>
   </body>
   </html>
 

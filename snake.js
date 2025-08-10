@@ -11,6 +11,7 @@
   const overlay = document.getElementById("overlay");
   const overlayTitle = document.getElementById("overlay-title");
   const overlaySubtitle = document.getElementById("overlay-subtitle");
+  const startButton = document.getElementById("start-button");
   const restartButton = document.getElementById("restart-button");
   const resumeButton = document.getElementById("resume-button");
   const pauseButton = document.getElementById("pause-button");
@@ -18,14 +19,32 @@
   const highScoreValueEl = document.getElementById("high-score-value");
   const levelValueEl = document.getElementById("level-value");
   const nextLevelButton = document.getElementById("next-level-button");
-  const stardustValueEl = document.getElementById("stardust-value");
-  const shopToggle = document.getElementById("shop-toggle");
+  const starsValueEl = document.getElementById("stars-value");
+  const loadoutEl = document.getElementById("loadout");
+  const intermissionActions = document.getElementById("intermission-actions");
+  const openShopButton = document.getElementById("open-shop-button");
+  const continueButton = document.getElementById("continue-button");
+  const intermissionShop = document.getElementById("intermission-shop");
+  const buyShieldIm = document.getElementById("buy-shield-im");
+  const buyMagnetIm = document.getElementById("buy-magnet-im");
+  const buySlowmoIm = document.getElementById("buy-slowmo-im");
+  const buyPhaseIm = document.getElementById("buy-phase-im");
+  const buyWarpIm = document.getElementById("buy-warp-im");
+  const buyStasisIm = document.getElementById("buy-stasis-im");
+  const buyDroneIm = document.getElementById("buy-drone-im");
+  const buyFuelIm = document.getElementById("buy-fuel-im");
+  const shopToggle = null; // removed
   const shopEl = document.getElementById("shop");
   const buyShield = document.getElementById("buy-shield");
   const buyMagnet = document.getElementById("buy-magnet");
   const buySlowmo = document.getElementById("buy-slowmo");
+  const buyPhaseBtn = document.getElementById("buy-phase");
+  const buyWarpBtn = document.getElementById("buy-warp");
+  const buyStasisBtn = document.getElementById("buy-stasis");
+  const buyDroneBtn = document.getElementById("buy-drone");
+  const buyFuelBtn = document.getElementById("buy-fuel");
   const levelsToggle = document.getElementById("levels-toggle");
-  const leaderboardToggle = document.getElementById("leaderboard-toggle");
+  const leaderboardToggle = null; // removed button
   const levelsPanel = document.getElementById("levels");
   const levelsList = document.getElementById("levels-list");
   const leaderboardPanel = document.getElementById("leaderboard");
@@ -41,9 +60,7 @@
   const timerWrap = document.getElementById("timer-wrap");
   const timerValueEl = document.getElementById("timer-value");
   const toastContainer = document.getElementById("toast-container");
-  const comboWrap = document.getElementById("combo-wrap");
-  const comboFill = document.getElementById("combo-fill");
-  const comboLabel = document.getElementById("combo-label");
+  // combo removed
   const objectiveWrap = document.getElementById("objective-wrap");
   const objectiveLabel = document.getElementById("objective-label");
   const objectiveFill = document.getElementById("objective-fill");
@@ -68,8 +85,7 @@
     } catch (_) {}
   });
 
-  const titleEl = document.querySelector(".title");
-  if (titleEl) titleEl.textContent = "Snake ✅";
+  // removed header title mutation (header title element no longer present)
 
   let GRID_SIZE = 20;
   let CELL_PX = canvas.width / GRID_SIZE;
@@ -87,6 +103,16 @@
     difficulty: "snakeDiffV1",
     momentum: "snakeMomentumV1",
   };
+
+  // Feature gates must be defined BEFORE any functions that may reference them are called
+  // Defaults are disabled; levels enable selectively via applyLevelConfig
+  let enableBonusFood = false;
+  let enableExtraFoods = false;
+  let enablePlanets = false;
+  let enableWarpGates = false;
+  let enableMeteors = false;
+  let enableBlackHoles = false;
+  let enableComet = false;
 
   // Seeded RNG (for Daily Run)
   function mulberry32(seed) {
@@ -128,6 +154,14 @@
   let soundEnabled = true;
   let particles = [];
   let bonusFood = null; // {x,y,expiresAt}
+  let wideStar = null; // {x,y} spans (x,y) and (x+1,y)
+  let blinkStar = null; // {x,y}
+  let ringStar = null; // {x,y}
+  let novaCore = null; // {x,y}
+  let quantumPair = null; // {a:{x,y}, b:{x,y}, first?:'a'|'b', expiresAt?:number}
+  let constellation = null; // {points:[{x,y}], nextIndex:number}
+  // Power-star collectibles (activate immediately on pickup)
+  let powerStars = []; // [{x,y,kind}]
   let screenShakeMs = 0;
   let trailDots = [];
   let ambientSparkles = [];
@@ -147,29 +181,170 @@
   let nextBlackHoleAt = performance.now() + 25000;
   let planets = []; // {x,y,radius}
   let warpGates = []; // [{x,y},{x,y}]
-  let multiplier = 1;
-  let lastEatAt = 0;
+  let oneWayGates = []; // [{from:{x,y}, to:{x,y}}]
+  let antiGravityBubbles = []; // [{x,y,radius}]
+  let solarWinds = []; // [{x1,y1,x2,y2,dx,dy,strength}]
+  let timeFields = []; // [{x1,y1,x2,y2,factor}] // factor>1 faster world; <1 slower
+  let asteroidBelts = []; // [{row:number, dir:1|-1, speedMs:number, lastMove:number, gaps:number[] }]
+  let radiationZones = []; // [{x1,y1,x2,y2,drainPerTick:number}]
+  let spaceMines = []; // [{x,y}]
+  let nebulaFog = false;
+  // combo removed
   let mode = "classic"; // classic | zen | rush | hardcore
   const themeSelect = null; // removed in space-only mode
   let theme = "space"; // force space theme
   let rushTimerMs = 60000; // 60 seconds
   let foods = []; // extra foods
+  // Campaign with natural progression and gated features
   const CAMPAIGN = [
-    { theme: "space", target: 10 },
-    { theme: "space", target: 14 },
-    { theme: "space", target: 18 },
-    { theme: "space", target: 22 },
-    { theme: "space", target: 26 },
-    { theme: "space", target: 30 },
+    {
+      theme: "space",
+      target: 10,
+      grid: 16,
+      baseSpeed: 170,
+      wrap: "none",
+      obstacles: false,
+      features: { bonusFood: false, extraFoods: false, planets: false, warpGates: false, meteors: false, blackHoles: false, comet: false },
+      intro: "Welcome! Small map, slow speed, no obstacles.",
+    },
+    {
+      theme: "space",
+      target: 12,
+      grid: 18,
+      baseSpeed: 150,
+      wrap: "wrap",
+      obstacles: false,
+      features: { bonusFood: true, extraFoods: false, planets: false, warpGates: false, meteors: false, blackHoles: false, comet: false },
+      intro: "Wrap unlocked. Bonus stars may appear.",
+    },
+    {
+      theme: "space",
+      target: 14,
+      grid: 20,
+      baseSpeed: 135,
+      wrap: "wrap",
+      obstacles: true,
+      features: { bonusFood: true, extraFoods: true, planets: true, warpGates: false, meteors: false, blackHoles: false, comet: false },
+      intro: "Obstacles appear and gravity wells tug lightly.",
+    },
+    {
+      theme: "space",
+      target: 16,
+      grid: 20,
+      baseSpeed: 120,
+      wrap: "wrap",
+      obstacles: true,
+      features: { bonusFood: true, extraFoods: true, planets: true, warpGates: true, meteors: false, blackHoles: false, comet: true },
+      intro: "Warp gates and comets join the fun.",
+    },
+    {
+      theme: "space",
+      target: 18,
+      grid: 22,
+      baseSpeed: 110,
+      wrap: "wrap",
+      obstacles: true,
+      features: { bonusFood: true, extraFoods: true, planets: true, warpGates: true, meteors: true, blackHoles: false, comet: true },
+      intro: "Meteor showers incoming!",
+    },
+    {
+      theme: "space",
+      target: 20,
+      grid: 24,
+      baseSpeed: 100,
+      wrap: "wrap",
+      obstacles: true,
+      features: { bonusFood: true, extraFoods: true, planets: true, warpGates: true, meteors: true, blackHoles: true, comet: true },
+      intro: "Black holes and everything at once.",
+    },
   ];
   let levelIndex = 0;
   let objective = { type: "collect", target: CAMPAIGN[0].target, progress: 0 };
   theme = CAMPAIGN[0].theme;
   if (themeSelect) themeSelect.value = theme;
-  let stardust = 0;
+  let starsCurrency = 0;
   let hasShield = false;
   let magnetUntil = 0;
   let slowmoUntil = 0;
+
+  // Feature gates are declared earlier; no re-declaration here.
+  // Additional feature toggles
+  let enableAntiGravity = false;
+  let enableSolarWinds = false;
+  let enableTimeFields = false;
+  let enableOneWayGates = false;
+  let enableAsteroidBelts = false;
+  let enableRadiation = false;
+  let enableMines = false;
+  let enableNebula = false;
+  let enableNovaCore = false;
+  let enableQuantumPair = false;
+  let enableConstellation = false;
+
+  // Power-up timers
+  let phaseShiftUntil = 0;
+  let stasisUntil = 0;
+  let droneUntil = 0;
+  let speedBoostUntil = 0;
+  let warpCharges = 0;
+  let doubleScoreUntil = 0;
+  let chainUntil = 0;
+  let enabledPowerKinds = [];
+
+  function applyLevelConfig(index, announce = false) {
+    const cfg = CAMPAIGN[index] || CAMPAIGN[0];
+    theme = cfg.theme || "space";
+    if (themeSelect) themeSelect.value = theme;
+    GRID_SIZE = cfg.grid || GRID_SIZE;
+    CELL_PX = canvas.width / GRID_SIZE;
+    BASE_MOVE_INTERVAL_MS = cfg.baseSpeed || BASE_MOVE_INTERVAL_MS;
+    // Force wrap on across all levels per requirement
+    wrapMode = "wrap";
+    wrapWalls = true;
+    obstaclesEnabled = !!cfg.obstacles;
+    enableBonusFood = !!(cfg.features && cfg.features.bonusFood);
+    enableExtraFoods = !!(cfg.features && cfg.features.extraFoods);
+    enablePlanets = false; // disabled per request: remove items that alter direction
+    enableWarpGates = !!(cfg.features && cfg.features.warpGates);
+    enableMeteors = !!(cfg.features && cfg.features.meteors);
+    enableBlackHoles = !!(cfg.features && cfg.features.blackHoles);
+    enableComet = !!(cfg.features && cfg.features.comet);
+    // Progressive unlocks by world index
+    enableAntiGravity = false; // disabled per request
+    enableSolarWinds = false;  // disabled per request
+    enableTimeFields = index >= 3;
+    enableOneWayGates = index >= 3;
+    enableAsteroidBelts = index >= 1;
+    enableRadiation = index >= 4;
+    enableMines = index >= 4;
+    enableNebula = index >= 5;
+    enableNovaCore = index >= 3;
+    enableQuantumPair = index >= 4;
+    enableConstellation = index >= 5;
+    // Configure which power-star kinds unlock by level (no shop)
+    enabledPowerKinds = [
+      index >= 0 ? ["shield","slowmo"] : [],
+      index >= 1 ? ["magnet","fuel"] : [],
+      index >= 2 ? ["phase"] : [],
+      index >= 3 ? ["stasis"] : [],
+      index >= 4 ? ["drone"] : [],
+      index >= 5 ? ["warp","doublescore","chain"] : [],
+    ].flat();
+    if (announce) {
+      if (overlay && overlayTitle && overlaySubtitle) {
+        overlay.classList.remove("hidden");
+        overlay.setAttribute("aria-hidden", "false");
+        overlayTitle.textContent = `Level ${index + 1}`;
+        if (index === 0) {
+          overlaySubtitle.textContent = `Goal: Collect ${cfg.target} stars.\nUse Arrows or WASD to move. You wrap at the edges.\nExpect cool space twists: warp gates, comets, meteor showers, black holes, and special stars as you progress.`;
+          if (startButton) startButton.classList.remove("u-hidden");
+        } else {
+          overlaySubtitle.textContent = `Goal: Collect ${cfg.target} stars. New space twists unlock each level.`;
+          if (startButton) startButton.classList.add("u-hidden");
+        }
+      }
+    }
+  }
 
   // Load high score
   try {
@@ -202,25 +377,36 @@
   // HUD helpers
   function refreshHUD() {
     if (scoreValueEl) scoreValueEl.textContent = String(score);
-    const level = Math.floor(score / 10) + 1;
+    const level = levelIndex + 1;
     if (levelValueEl) levelValueEl.textContent = String(level);
-    if (multiplierValueEl) multiplierValueEl.textContent = String(multiplier);
+    if (multiplierValueEl) multiplierValueEl.textContent = "";
     if (timerWrap) timerWrap.classList.toggle("u-hidden", mode !== "rush");
     if (mode === "rush" && timerValueEl) timerValueEl.textContent = String(Math.max(0, Math.ceil(rushTimerMs / 1000)));
-    // combo bar updates
-    const msLeft = Math.max(0, 3000 - (performance.now() - lastEatAt));
-    const pct = Math.min(100, Math.max(0, (msLeft / 3000) * 100));
-    if (comboWrap) comboWrap.classList.toggle("is-active", !(multiplier <= 1 || msLeft <= 0));
-    if (comboFill) comboFill.style.width = pct + "%";
-    if (comboLabel) comboLabel.textContent = `Combo x${multiplier}`;
+    // combo removed
     // objective HUD
     if (objectiveWrap) {
       if (objective.type === "collect") {
         if (objectiveLabel) objectiveLabel.textContent = `Objective: Collect ${objective.target} stars (${objective.progress}/${objective.target})`;
         if (objectiveFill) objectiveFill.style.width = `${Math.min(100, (objective.progress / objective.target) * 100)}%`;
       }
+      objectiveWrap.classList.toggle("u-hidden", !objective || !objective.type);
     }
-    if (stardustValueEl) stardustValueEl.textContent = String(stardust);
+    if (starsValueEl) starsValueEl.textContent = String(starsCurrency);
+    // Render loadout badges
+    if (loadoutEl) {
+      const items = [];
+      if (hasShield) items.push({ icon: "🛡️", label: "Shield" });
+      if (performance.now() < magnetUntil) items.push({ icon: "🧲", label: "Magnet" });
+      if (performance.now() < slowmoUntil) items.push({ icon: "🐢", label: "Slow‑mo" });
+      if (performance.now() < phaseShiftUntil) items.push({ icon: "🌀", label: "Phase" });
+      if (warpCharges > 0) items.push({ icon: "⚡", label: `Warp x${warpCharges}` });
+      if (performance.now() < stasisUntil) items.push({ icon: "🧊", label: "Stasis" });
+      if (performance.now() < droneUntil) items.push({ icon: "🤖", label: "Drone" });
+      if (performance.now() < speedBoostUntil) items.push({ icon: "⛽", label: "Fuel" });
+      if (performance.now() < doubleScoreUntil) items.push({ icon: "✖️2", label: "2x" });
+      if (performance.now() < chainUntil) items.push({ icon: "⛓️", label: "Chain" });
+      loadoutEl.innerHTML = items.map(i => `<span class="badge"><span>${i.icon}</span>${i.label}</span>`).join("");
+    }
   }
   refreshHUD();
 
@@ -233,6 +419,14 @@
       const y = Math.floor(rand() * GRID_SIZE);
       const onSnake = snake.some((s) => s.x === x && s.y === y);
       const onObstacle = obstacles.some((o) => o.x === x && o.y === y);
+      if (enablePlanets) {
+        const onPlanet = planets.some((p) => Math.abs(p.x - x) + Math.abs(p.y - y) <= p.radius);
+        if (onPlanet) { continue; }
+      }
+      if (enableWarpGates) {
+        const onGate = warpGates.some((g) => g.x === x && g.y === y);
+        if (onGate) { continue; }
+      }
       if (!onSnake && !onObstacle) return { x, y };
     }
   }
@@ -252,6 +446,45 @@
     ctx.strokeStyle = "rgba(255,255,255,0.06)";
     ctx.lineWidth = 1;
     ctx.strokeRect(px + 0.5, py + 0.5, CELL_PX - 1, CELL_PX - 1);
+  }
+
+  // New: wide star (spans 2 cells horizontally) requiring angled approach
+  function drawWideStar(leftX, y, color = "#ffe066") {
+    const px = leftX * CELL_PX;
+    const py = y * CELL_PX;
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.strokeStyle = "#f59e0b";
+    ctx.lineWidth = 1.5;
+    const w = CELL_PX * 2;
+    const h = CELL_PX - 2;
+    const cx = px + w / 2;
+    const cy = py + CELL_PX / 2;
+    // pill body
+    ctx.beginPath();
+    ctx.moveTo(px + 4, py + 2);
+    ctx.lineTo(px + w - 4, py + 2);
+    ctx.quadraticCurveTo(px + w + 2, cy, px + w - 4, py + h);
+    ctx.lineTo(px + 4, py + h);
+    ctx.quadraticCurveTo(px - 2, cy, px + 4, py + 2);
+    ctx.closePath();
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 10;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.stroke();
+    // small star emboss
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 5);
+    for (let i = 1; i < 10; i += 1) {
+      const ang = (Math.PI / 5) * i;
+      const r = i % 2 ? 4 : 2;
+      ctx.lineTo(cx + Math.sin(ang) * r, cy - Math.cos(ang) * r);
+    }
+    ctx.closePath();
+    ctx.fillStyle = "#fffbe6";
+    ctx.fill();
+    ctx.restore();
   }
 
   function drawBoardBackground() {
@@ -365,6 +598,8 @@
   }
 
   function gameReset() {
+    // Apply current level config FIRST so grid/features are correct for spawns
+    applyLevelConfig(levelIndex);
     snake = [
       { x: 10, y: 10 },
       { x: 9, y: 10 },
@@ -372,7 +607,6 @@
     ];
     direction = { x: 1, y: 0 };
     queuedDirection = { x: 1, y: 0 };
-    food = spawnFood();
     score = 0;
     refreshHUD();
     gameOver = false;
@@ -387,34 +621,63 @@
     }
     bonusFood = null;
     screenShakeMs = 0;
-    multiplier = 1;
-    lastEatAt = 0;
+    // combo removed
     foods = [];
     trailDots = [];
     ambientSparkles = [];
     textPops = [];
     prevLevel = 1;
     foodPulseAt = performance.now();
+    // Reset per-level power-ups
     comet = null;
     invincibleUntil = 0;
+    hasShield = false;
+    magnetUntil = 0;
+    slowmoUntil = 0;
+    // Reset new power-ups per level
+    phaseShiftUntil = 0;
+    stasisUntil = 0;
+    droneUntil = 0;
+    speedBoostUntil = 0;
+    warpCharges = 0;
     meteors = [];
     nextMeteorShowerAt = performance.now() + 20000;
     meteorShowerUntil = 0;
     blackHoles = [];
     nextBlackHoleAt = performance.now() + 25000;
-    // spawn 1-2 planets (gravity wells) and one warp gate pair
+    // space objects gated by level features
     planets = [];
-    const planetCount = 1 + Math.floor(rand() * 2);
-    for (let i = 0; i < planetCount; i += 1) {
-      const p = spawnFood();
-      planets.push({ x: p.x, y: p.y, radius: 2 + Math.floor(rand() * 2) });
+    if (enablePlanets) {
+      const planetCount = 1 + Math.floor(rand() * 2);
+      for (let i = 0; i < planetCount; i += 1) {
+        const p = spawnFood();
+        planets.push({ x: p.x, y: p.y, radius: 2 + Math.floor(rand() * 2) });
+      }
     }
     warpGates = [];
-    if (rand() < 0.9) {
+    if (enableWarpGates && rand() < 0.9) {
       const a = spawnFood();
       const b = spawnFood();
       warpGates = [{ x: a.x, y: a.y }, { x: b.x, y: b.y }];
     }
+    oneWayGates = [];
+    if (enableOneWayGates && rand() < 0.5) {
+      const a = spawnFood();
+      const b = spawnFood();
+      oneWayGates.push({ from: { x: a.x, y: a.y }, to: { x: b.x, y: b.y } });
+    }
+    antiGravityBubbles = enableAntiGravity ? [{ x: Math.floor(rand()*GRID_SIZE), y: Math.floor(rand()*GRID_SIZE), radius: 3 }] : [];
+    solarWinds = enableSolarWinds ? [{ x1: 0, y1: Math.floor(GRID_SIZE/3), x2: GRID_SIZE-1, y2: Math.floor(GRID_SIZE/3)+1, dx: 1, dy: 0, strength: 0.25 }] : [];
+    timeFields = enableTimeFields ? [{ x1: Math.floor(GRID_SIZE/2)-2, y1: Math.floor(GRID_SIZE/2)-2, x2: Math.floor(GRID_SIZE/2)+2, y2: Math.floor(GRID_SIZE/2)+2, factor: 0.6 }] : [];
+    asteroidBelts = enableAsteroidBelts ? [{ row: Math.floor(GRID_SIZE*0.6), dir: -1, speedMs: 240, lastMove: 0, gaps: [2,6,10,14] }] : [];
+    radiationZones = enableRadiation ? [{ x1: Math.floor(GRID_SIZE*0.2), y1: Math.floor(GRID_SIZE*0.2), x2: Math.floor(GRID_SIZE*0.5), y2: Math.floor(GRID_SIZE*0.5), drainPerTick: 0.1 }] : [];
+    spaceMines = enableMines ? [{ x: Math.floor(rand()*GRID_SIZE), y: Math.floor(rand()*GRID_SIZE) }] : [];
+    nebulaFog = !!enableNebula;
+    novaCore = null;
+    quantumPair = null;
+    constellation = null;
+    // Spawn food AFTER features/obstacles are placed so it never lands on them
+    food = spawnFood();
     if (mode === "rush") rushTimerMs = 60000;
     // Keep high score
   }
@@ -422,8 +685,8 @@
   function setGameOver(message) {
     running = false;
     gameOver = true;
-    overlayTitle.textContent = "Game Over";
-    overlaySubtitle.textContent = message + ` — Score: ${score}`;
+    overlayTitle.textContent = "Level Complete";
+    overlaySubtitle.textContent = `Collected ${objective.target} stars!`;
     resumeButton.classList.add("u-hidden");
     restartButton.classList.remove("u-hidden");
     overlay.classList.remove("hidden");
@@ -442,6 +705,8 @@
       resumeButton.classList.remove("u-hidden");
       restartButton.classList.add("u-hidden");
       if (nextLevelButton) nextLevelButton.classList.add("u-hidden");
+      if (intermissionActions) intermissionActions.classList.add("u-hidden");
+      if (intermissionShop) intermissionShop.classList.add("u-hidden");
       overlay.classList.remove("hidden");
       overlay.setAttribute("aria-hidden", "false");
     } else {
@@ -451,18 +716,19 @@
   }
 
   function startNextLevel() {
-    // simple progression: increase target and add more obstacles
     levelIndex += 1;
     if (levelIndex >= CAMPAIGN.length) levelIndex = CAMPAIGN.length - 1;
-    const config = CAMPAIGN[levelIndex];
-    theme = "space";
-    objective = { type: "collect", target: config.target, progress: 0 };
-    toast(`Level ${levelIndex + 1}: Collect ${objective.target} stars`);
+    const cfg = CAMPAIGN[levelIndex];
+    objective = { type: "collect", target: cfg.target, progress: 0 };
+    applyLevelConfig(levelIndex, true);
+    // Reset transient state for new level
+    obstacles = [];
     if (obstaclesEnabled) {
-      const target = desiredObstacleCountForScore(score) + 2;
+      const target = desiredObstacleCountForScore(0) + 2;
       while (obstacles.length < target) spawnObstacle();
     }
-    if (nextLevelButton) nextLevelButton.classList.add("u-hidden");
+    if (intermissionActions) intermissionActions.classList.add("u-hidden");
+    if (intermissionShop) intermissionShop.classList.add("u-hidden");
     overlay.classList.add("hidden");
     running = true;
     refreshHUD();
@@ -490,15 +756,51 @@
     else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") handleDirectionChange(1, 0);
     else if (e.key === "p" || e.key === "P") setPaused(running);
     else if (e.key === "r" || e.key === "R") gameReset();
+    else if (e.key === "f" || e.key === "F") {
+      if (warpCharges > 0 && running && !gameOver) {
+        const head = snake[0];
+        const nx = (head.x + direction.x * 3 + GRID_SIZE) % GRID_SIZE;
+        const ny = (head.y + direction.y * 3 + GRID_SIZE) % GRID_SIZE;
+        const candidates = [
+          { x: nx, y: ny },
+          { x: (head.x + direction.x * 2 + GRID_SIZE) % GRID_SIZE, y: (head.y + direction.y * 2 + GRID_SIZE) % GRID_SIZE },
+          { x: (head.x + direction.x + GRID_SIZE) % GRID_SIZE, y: (head.y + direction.y + GRID_SIZE) % GRID_SIZE },
+        ];
+        let target = candidates.find(c => !obstacles.some(o=>o.x===c.x&&o.y===c.y));
+        if (!target) target = { x: head.x, y: head.y };
+        snake[0] = target;
+        warpCharges -= 1;
+        invincibleUntil = Math.max(invincibleUntil, performance.now() + 600);
+        spawnTextPop("WARP", target.x, target.y, "#93c5fd");
+        playSound("buy");
+      }
+    }
     unlockAudio();
   });
 
   restartButton.addEventListener("click", gameReset);
   resumeButton.addEventListener("click", () => setPaused(false));
-  pauseButton.addEventListener("click", () => setPaused(running));
+  // removed pause button UI
+  if (pauseButton) pauseButton.addEventListener("click", () => setPaused(running));
   if (nextLevelButton) nextLevelButton.addEventListener("click", () => { startNextLevel(); setPaused(false); });
+  // removed openShopButton (no separate shop in intermission)
+  if (continueButton) continueButton.addEventListener("click", () => {
+    if (intermissionActions) intermissionActions.classList.add("u-hidden");
+    if (intermissionShop) intermissionShop.classList.add("u-hidden");
+    startNextLevel();
+  });
+  // Populate intermission list with power-stars for next level
+  const intermissionList = document.getElementById("intermission-list");
+  // disable buy buttons (no-op)
+  const disableBtn = (el) => { if (!el) return; el.disabled = true; el.classList.add("u-hidden"); };
+  disableBtn(buyShieldIm); disableBtn(buyMagnetIm); disableBtn(buySlowmoIm);
+  disableBtn(buyPhaseIm); disableBtn(buyWarpIm); disableBtn(buyStasisIm);
+  disableBtn(buyDroneIm); disableBtn(buyFuelIm);
   overlay.addEventListener("click", () => {
-    if (!gameOver && !running) setPaused(false);
+    if (!gameOver && !running) {
+      if (intermissionActions && !intermissionActions.classList.contains("u-hidden")) return;
+      setPaused(false);
+    }
   });
   // Click to restart on game over
   canvas.addEventListener("click", () => {
@@ -506,11 +808,9 @@
   });
   // Settings toggles
   if (wrapModeSelect) {
-    wrapModeSelect.addEventListener("change", () => {
-      wrapMode = wrapModeSelect.value;
-      wrapWalls = wrapMode !== "none";
-      try { localStorage.setItem(PREFS_KEY.wrap, wrapMode === "wrap" ? "1" : wrapMode); } catch (_) {}
-    });
+    // lock to wrap visually
+    wrapModeSelect.value = "wrap";
+    wrapModeSelect.disabled = true;
   }
   if (obstaclesToggle) {
     obstaclesToggle.addEventListener("change", () => {
@@ -573,23 +873,8 @@
       refreshHUD();
     });
   }
-  if (shopToggle && shopEl) {
-    shopToggle.addEventListener("click", () => {
-      const open = shopEl.classList.contains("u-hidden");
-      shopEl.classList.toggle("u-hidden", !open);
-      setPaused(open ? true : false);
-    });
-  }
-  if (buyShield) buyShield.addEventListener("click", () => purchase("shield"));
-  if (buyMagnet) buyMagnet.addEventListener("click", () => purchase("magnet"));
-  if (buySlowmo) buySlowmo.addEventListener("click", () => purchase("slowmo"));
-  window.addEventListener("keydown", (e) => {
-    if (shopEl && !shopEl.classList.contains("u-hidden")) {
-      if (e.key === "1") purchase("shield");
-      if (e.key === "2") purchase("magnet");
-      if (e.key === "3") purchase("slowmo");
-    }
-  });
+  // shop removed: ignore buy buttons if present
+  // remove quick-buy hotkeys
 
   // Levels UI
   if (levelsToggle && levelsPanel && levelsList) {
@@ -627,13 +912,7 @@
     list.sort((a,b)=> b.score - a.score);
     writeLeaderboard(list);
   }
-  if (leaderboardToggle && leaderboardPanel && leaderboardList) {
-    leaderboardToggle.addEventListener("click", () => {
-      const open = leaderboardPanel.classList.contains("u-hidden");
-      leaderboardPanel.classList.toggle("u-hidden", !open);
-      if (open) renderLeaderboard();
-    });
-  }
+  // leaderboard button removed; panel remains for future use
   function renderLeaderboard() {
     const list = readLeaderboard();
     leaderboardList.innerHTML = "";
@@ -694,9 +973,24 @@
     // apply queued direction
     direction = queuedDirection;
 
+    // Phase Shift: temporarily ignore self-collision
+    const inPhase = now < phaseShiftUntil;
+
     // compute new head
     const head = snake[0];
     let newHead = { x: head.x + direction.x, y: head.y + direction.y };
+
+    // Time fields affect update cadence
+    if (timeFields.length) {
+      for (const tf of timeFields) {
+        if (newHead.x >= tf.x1 && newHead.x <= tf.x2 && newHead.y >= tf.y1 && newHead.y <= tf.y2) {
+          moveIntervalMs = Math.max(MIN_MOVE_INTERVAL_MS, BASE_MOVE_INTERVAL_MS * tf.factor);
+          break;
+        } else {
+          moveIntervalMs = Math.max(MIN_MOVE_INTERVAL_MS, BASE_MOVE_INTERVAL_MS - Math.min(80, score * 1.5));
+        }
+      }
+    }
 
     // wall behavior
     if (wrapMode === "wrap") {
@@ -717,24 +1011,41 @@
       }
     } else {
       if (newHead.x < 0 || newHead.x >= GRID_SIZE || newHead.y < 0 || newHead.y >= GRID_SIZE) {
-        setGameOver("You hit a wall");
-        return;
+        if (hasShield) {
+          consumeShieldAt(Math.max(0, Math.min(GRID_SIZE-1,newHead.x)), Math.max(0, Math.min(GRID_SIZE-1,newHead.y)), performance.now());
+          // push inside and continue
+          newHead.x = Math.max(0, Math.min(GRID_SIZE-1,newHead.x));
+          newHead.y = Math.max(0, Math.min(GRID_SIZE-1,newHead.y));
+        } else {
+          setGameOver("You hit a wall");
+          return;
+        }
       }
     }
 
     // obstacle collision
-    const invincible = performance.now() < invincibleUntil || hasShield;
-    const hitObstacle = obstaclesEnabled && !invincible && obstacles.some((o) => o.x === newHead.x && o.y === newHead.y);
-    if (hitObstacle) {
-      setGameOver("You hit an obstacle");
-      return;
+    const nowTs = performance.now();
+    let invincible = nowTs < invincibleUntil;
+    const hitObstacleRaw = obstaclesEnabled && obstacles.some((o) => o.x === newHead.x && o.y === newHead.y);
+    if (hitObstacleRaw && !invincible) {
+      if (hasShield) {
+        consumeShieldAt(newHead.x, newHead.y, nowTs);
+      } else {
+        setGameOver("You hit an obstacle");
+        return;
+      }
     }
 
     // self collision (exclude the last tail cell because it moves)
-    const willCollide = !invincible && snake.slice(0, -1).some((s) => s.x === newHead.x && s.y === newHead.y);
-    if (willCollide) {
-      setGameOver("You bit yourself");
-      return;
+    invincible = performance.now() < invincibleUntil;
+    const selfHit = !inPhase && snake.slice(0, -1).some((s) => s.x === newHead.x && s.y === newHead.y);
+    if (selfHit && !invincible) {
+      if (hasShield) {
+        consumeShieldAt(newHead.x, newHead.y, performance.now());
+      } else {
+        setGameOver("You bit yourself");
+        return;
+      }
     }
 
     // move snake
@@ -743,58 +1054,154 @@
     trailDots.push({ x: newHead.x, y: newHead.y, createdAt: now, lifeMs: 450 });
     if (trailDots.length > 400) trailDots.splice(0, trailDots.length - 400);
 
+    // Apply physics fields after moving
+    if (antiGravityBubbles.length) {
+      for (const b of antiGravityBubbles) {
+        const dx = newHead.x - b.x;
+        const dy = newHead.y - b.y;
+        const d2 = dx*dx + dy*dy;
+        if (d2 <= (b.radius*b.radius)) {
+          // push away one step with small chance
+          if (rand() < 0.35) {
+            newHead.x += Math.sign(dx);
+            newHead.y += Math.sign(dy);
+          }
+        }
+      }
+    }
+    if (solarWinds.length) {
+      for (const w of solarWinds) {
+        // simple horizontal wind band
+        if (newHead.y >= w.y1 && newHead.y <= w.y2) {
+          if (rand() < w.strength) newHead.x += w.dx;
+        }
+      }
+    }
+
+    // Drone Buddy: auto-collect nearest star within radius
+    if (now < droneUntil) {
+      const radius = 2;
+      const targets = [food, ...(bonusFood ? [bonusFood] : []), ...foods];
+      let best = null;
+      let bestDist = 9999;
+      for (const t of targets) {
+        const d = Math.abs(t.x - newHead.x) + Math.abs(t.y - newHead.y);
+        if (d <= radius && d < bestDist) { best = t; bestDist = d; }
+      }
+      if (best) {
+        // pull it instantly
+        if (best === food) { newHead.x = food.x; newHead.y = food.y; }
+        else if (bonusFood && best === bonusFood) { newHead.x = bonusFood.x; newHead.y = bonusFood.y; }
+        else {
+          const idx = foods.findIndex(f=>f===best);
+          if (idx>=0) { newHead.x = foods[idx].x; newHead.y = foods[idx].y; foods.splice(idx,1); }
+        }
+        spawnTextPop("DRONE", newHead.x, newHead.y, "#fbbf24");
+      }
+    }
+
     // food
     if (newHead.x === food.x && newHead.y === food.y) {
       score += 1;
-      // small chance to drop stardust
-      if (Math.random() < 0.15) { stardust += 1; spawnTextPop("★", food.x, food.y, "#fde68a"); }
+      starsCurrency += 1; // 1 star collected = 1 currency
+      const mult = performance.now() < doubleScoreUntil ? 2 : 1;
+      spawnTextPop(mult > 1 ? "★★" : "★", food.x, food.y, "#fde68a");
       // objective progress (collect stars)
       if (objective.type === "collect") {
         objective.progress += 1;
         if (objective.progress >= objective.target) {
-          // Complete level
+          // Complete level → show intermission actions (shop + continue)
           overlayTitle.textContent = "Level Complete";
           overlaySubtitle.textContent = `Collected ${objective.target} stars!`;
           resumeButton.classList.add("u-hidden");
-          restartButton.classList.remove("u-hidden");
-          if (nextLevelButton) nextLevelButton.classList.remove("u-hidden");
+          restartButton.classList.add("u-hidden");
+          if (nextLevelButton) nextLevelButton.classList.add("u-hidden");
+          if (intermissionActions) intermissionActions.classList.remove("u-hidden");
+          if (intermissionShop) {
+            intermissionShop.classList.remove("u-hidden");
+            // Build list of power-stars available next level
+            const nextIdx = Math.min(levelIndex + 1, CAMPAIGN.length - 1);
+            applyLevelConfig(nextIdx);
+            const kinds = enabledPowerKinds;
+            intermissionShop.innerHTML = kinds.map(k => {
+              const emoji = { shield:"🛡️", magnet:"🧲", slowmo:"🐢", phase:"🌀", warp:"⚡", stasis:"🧊", drone:"🤖", fuel:"⛽", doublescore:"✖️2", chain:"⛓️" }[k] || "★";
+              const title = k === 'doublescore' ? 'Double Score' : (k.charAt(0).toUpperCase() + k.slice(1));
+              return `<div class="intermission-item"><div class="icon">${emoji}</div><div class="meta"><div class="title">${title}</div></div></div>`;
+            }).join("");
+            // restore current level config after preview
+            applyLevelConfig(levelIndex);
+          }
           overlay.classList.remove("hidden");
           running = false;
-          toast("Level complete!");
+          toast("Level complete! Review next level's power-stars");
         }
       }
       refreshHUD();
       spawnTextPop("+1", food.x, food.y, "#ffffff");
       emitParticles(food.x, food.y, "#ef4444");
       food = spawnFood();
-      // Occasionally spawn bonus food with a short timer
-      if (Math.random() < 0.25 && !bonusFood) {
+      // occasionally spawn a wide star collectible (unlocks Level 3+)
+      if (levelIndex >= 2 && !wideStar && Math.random() < 0.18) {
+        const pos = spawnFood();
+        // ensure second cell is free
+        if (pos.x < GRID_SIZE - 1 && !snake.some(s=>s.x===pos.x+1&&s.y===pos.y) && !obstacles.some(o=>o.x===pos.x+1&&o.y===pos.y)) {
+          wideStar = { x: pos.x, y: pos.y };
+        }
+      }
+      // blink star (Level 4+)
+      if (levelIndex >= 3 && !blinkStar && Math.random() < 0.12) {
+        blinkStar = spawnFood();
+      }
+      // ring star (Level 6)
+      if (levelIndex >= 5 && !ringStar && Math.random() < 0.08) {
+        ringStar = spawnFood();
+      }
+      // Occasionally spawn bonus food with a short timer (if enabled)
+      // Nova Core (Level 4+)
+      if (enableNovaCore && !novaCore && Math.random() < 0.08) {
+        novaCore = spawnFood();
+      }
+      // Quantum Pair (Level 5+)
+      if (enableQuantumPair && !quantumPair && Math.random() < 0.06) {
+        const a = spawnFood();
+        const b = spawnFood();
+        quantumPair = { a, b };
+      }
+      // Constellation Shards (Level 6)
+      if (enableConstellation && !constellation && Math.random() < 0.05) {
+        const p1 = spawnFood();
+        const p2 = spawnFood();
+        const p3 = spawnFood();
+        constellation = { points: [p1, p2, p3], nextIndex: 0 };
+      }
+      if (enableBonusFood && Math.random() < 0.25 && !bonusFood) {
         bonusFood = spawnFood();
         bonusFood.expiresAt = performance.now() + 3500; // 3.5s
       }
-      // Combo multiplier
-      const tNow = performance.now();
-      if (tNow - lastEatAt < 3000) {
-        multiplier = Math.min(5, multiplier + 1);
-      } else {
-        multiplier = 1;
+      // Spawn a power-star sometimes
+      if (enabledPowerKinds.length && Math.random() < 0.2 && powerStars.length < 2) {
+        const kind = enabledPowerKinds[Math.floor(Math.random() * enabledPowerKinds.length)];
+        const p = spawnFood();
+        powerStars.push({ x: p.x, y: p.y, kind });
       }
-      lastEatAt = tNow;
-      score += multiplier - 1; // add combo bonus
+      // combo removed
       refreshHUD();
 
-      // High score
-      if (score > highScore) {
-        highScore = score;
-        highScoreValueEl.textContent = String(highScore);
-        try { localStorage.setItem(HIGH_SCORE_KEY, String(highScore)); } catch (_) {}
-      }
+    // High score
+    if (score > highScore) {
+      highScore = score;
+      highScoreValueEl.textContent = String(highScore);
+      try { localStorage.setItem(HIGH_SCORE_KEY, String(highScore)); } catch (_) {}
+    }
 
-      // Speed ramp
-      // Slow acceleration by ~50%
-      moveIntervalMs = Math.max(MIN_MOVE_INTERVAL_MS, BASE_MOVE_INTERVAL_MS - Math.min(80, score * 1.5));
+    // Speed ramp + Fuel Boost handling
+    const baseSpeed = Math.max(MIN_MOVE_INTERVAL_MS, BASE_MOVE_INTERVAL_MS - Math.min(80, score * 1.5));
+    moveIntervalMs = baseSpeed;
+    if (now < speedBoostUntil) {
+      moveIntervalMs = Math.max(MIN_MOVE_INTERVAL_MS, baseSpeed * 0.6);
+    }
 
-      // Obstacles growth
+       // Obstacles growth
       if (obstaclesEnabled) {
         const target = desiredObstacleCountForScore(score);
         while (obstacles.length < target) spawnObstacle();
@@ -809,9 +1216,10 @@
     // Bonus food handling
     if (bonusFood) {
       if (newHead.x === bonusFood.x && newHead.y === bonusFood.y) {
-        const bonus = 5;
+        const bonus = (performance.now() < doubleScoreUntil) ? 10 : 5;
         score += bonus;
-        if (Math.random() < 0.4) { stardust += 1; spawnTextPop("★", bonusFood.x, bonusFood.y, "#fde68a"); }
+        starsCurrency += 5; // bonus star worth 5 currency
+        spawnTextPop("★★★★★", bonusFood.x, bonusFood.y, "#fde68a");
         refreshHUD();
         emitParticles(bonusFood.x, bonusFood.y, "#f59e0b");
         spawnTextPop("+5", bonusFood.x, bonusFood.y, "#fde68a");
@@ -829,6 +1237,121 @@
       }
     }
 
+    // Chain effect: small extra point when collecting stars in quick succession
+    if (performance.now() < chainUntil) {
+      // chain handled implicitly by increased collection frequency; optionally could add more here
+    }
+
+    // Wide star collection: must occupy either of the two cells; only counts if entering from a non-parallel direction
+    if (wideStar) {
+      const hitLeft = newHead.x === wideStar.x && newHead.y === wideStar.y;
+      const hitRight = newHead.x === wideStar.x + 1 && newHead.y === wideStar.y;
+      if (hitLeft || hitRight) {
+        // Require angled approach: previous head not aligned horizontally across the piece
+        const prev = head; // previous head position
+        const approachedFromTopOrBottom = prev.y !== wideStar.y;
+        if (approachedFromTopOrBottom) {
+          score += 2;
+          starsCurrency += 2;
+          spawnTextPop("★★", wideStar.x + 0.5, wideStar.y, "#fff59d");
+          emitParticles(wideStar.x + 1, wideStar.y, "#fde68a");
+          wideStar = null;
+          refreshHUD();
+          playSound("eat");
+        }
+      }
+    }
+
+    // Power-star collection
+    if (powerStars.length) {
+      const remain = [];
+      for (const ps of powerStars) {
+        if (ps.x === newHead.x && ps.y === newHead.y) {
+          // Activate
+          const nowT = performance.now();
+          if (ps.kind === "shield") { hasShield = true; spawnTextPop("🛡️", ps.x, ps.y, "#93c5fd"); }
+          else if (ps.kind === "magnet") { magnetUntil = nowT + 8000; spawnTextPop("🧲", ps.x, ps.y, "#60a5fa"); }
+          else if (ps.kind === "slowmo") { slowmoUntil = nowT + 6000; spawnTextPop("🐢", ps.x, ps.y, "#a7f3d0"); }
+          else if (ps.kind === "phase") { phaseShiftUntil = nowT + 5000; spawnTextPop("🌀", ps.x, ps.y, "#93c5fd"); }
+          else if (ps.kind === "warp") { warpCharges += 1; spawnTextPop("⚡+1", ps.x, ps.y, "#93c5fd"); }
+          else if (ps.kind === "stasis") { stasisUntil = nowT + 2500; spawnTextPop("🧊", ps.x, ps.y, "#93c5fd"); }
+          else if (ps.kind === "drone") { droneUntil = nowT + 6000; spawnTextPop("🤖", ps.x, ps.y, "#93c5fd"); }
+          else if (ps.kind === "fuel") { speedBoostUntil = nowT + 4000; spawnTextPop("⛽", ps.x, ps.y, "#fbbf24"); }
+          else if (ps.kind === "doublescore") { doubleScoreUntil = nowT + 8000; spawnTextPop("2x", ps.x, ps.y, "#fde68a"); }
+          else if (ps.kind === "chain") { chainUntil = nowT + 6000; spawnTextPop("Chain", ps.x, ps.y, "#fde68a"); }
+        } else remain.push(ps);
+      }
+      powerStars = remain;
+      refreshHUD();
+    }
+
+    // Blink star collection
+    if (blinkStar && newHead.x === blinkStar.x && newHead.y === blinkStar.y) {
+      // Only collect when visible
+      const visible = Math.floor(performance.now() / 400) % 2 === 0;
+      if (visible) {
+        score += 3;
+        starsCurrency += 3;
+        spawnTextPop("★★★", blinkStar.x, blinkStar.y, "#fff59d");
+        emitParticles(blinkStar.x, blinkStar.y, "#fde68a");
+        blinkStar = null;
+        refreshHUD();
+        playSound("eat");
+      }
+    }
+
+    // Ring star collection (+4)
+    if (ringStar && newHead.x === ringStar.x && newHead.y === ringStar.y) {
+      score += 4;
+      starsCurrency += 4;
+      spawnTextPop("★★★★", ringStar.x, ringStar.y, "#bbf7d0");
+      emitParticles(ringStar.x, ringStar.y, "#86efac");
+      ringStar = null;
+      refreshHUD();
+      playSound("eat");
+    }
+
+    // Nova Core (+5) — clears nearby hazards
+    if (novaCore && newHead.x === novaCore.x && newHead.y === novaCore.y) {
+      score += 5; starsCurrency += 5; refreshHUD();
+      emitParticles(novaCore.x, novaCore.y, "#fcd34d");
+      // clear nearby asteroids/mines in 2-cell radius
+      obstacles = obstacles.filter(o => Math.abs(o.x - novaCore.x) + Math.abs(o.y - novaCore.y) > 2);
+      spaceMines = spaceMines.filter(m => Math.abs(m.x - novaCore.x) + Math.abs(m.y - novaCore.y) > 2);
+      novaCore = null; playSound("eat");
+    }
+
+    // Quantum Pair: must collect both within 2s
+    if (quantumPair) {
+      const hitA = newHead.x === quantumPair.a.x && newHead.y === quantumPair.a.y;
+      const hitB = newHead.x === quantumPair.b.x && newHead.y === quantumPair.b.y;
+      if (hitA || hitB) {
+        if (!quantumPair.first) {
+          quantumPair.first = hitA ? 'a' : 'b';
+          quantumPair.expiresAt = performance.now() + 2000;
+          spawnTextPop("Pair!", newHead.x, newHead.y, "#a5b4fc");
+        } else {
+          score += 4; starsCurrency += 4; refreshHUD();
+          quantumPair = null; playSound("eat");
+        }
+      }
+      if (quantumPair && quantumPair.expiresAt && performance.now() > quantumPair.expiresAt) quantumPair = null;
+    }
+
+    // Constellation sequence
+    if (constellation) {
+      const idx = constellation.nextIndex;
+      const p = constellation.points[idx];
+      if (newHead.x === p.x && newHead.y === p.y) {
+        constellation.nextIndex += 1;
+        spawnTextPop(`${idx+1}/${constellation.points.length}`, p.x, p.y, "#93c5fd");
+        if (constellation.nextIndex >= constellation.points.length) {
+          score += 6; starsCurrency += 6; playSound("eat"); refreshHUD();
+          constellation = null; spawnConfetti();
+        }
+      }
+    }
+
     // Rush timer and combo/multiplier scheduling
     if (mode === "rush") {
       rushTimerMs -= moveIntervalMs;
@@ -839,7 +1362,7 @@
     }
 
     // Occasionally spawn extra foods (max 2 active)
-    if (foods.length < 2 && Math.random() < 0.1) {
+    if (enableExtraFoods && foods.length < 2 && Math.random() < 0.1) {
       const nf = spawnFood();
       foods.push(nf);
     }
@@ -855,7 +1378,7 @@
     // Space theme special: moving comet power-up
     if (theme === "space") {
       // gravity wells pull the head lightly
-      for (const p of planets) {
+      if (enablePlanets) for (const p of planets) {
         const dx = p.x - newHead.x;
         const dy = p.y - newHead.y;
         const dist2 = dx * dx + dy * dy;
@@ -868,7 +1391,7 @@
         }
       }
       // warp gates
-      if (warpGates.length === 2) {
+      if (enableWarpGates && warpGates.length === 2) {
         const a = warpGates[0];
         const b = warpGates[1];
         if (newHead.x === a.x && newHead.y === a.y) {
@@ -878,41 +1401,49 @@
         }
       }
       // meteor shower schedule
-      if (meteorShowerUntil === 0 && now > nextMeteorShowerAt) {
+      if (enableMeteors && meteorShowerUntil === 0 && now > nextMeteorShowerAt) {
         meteorShowerUntil = now + 6000; // 6s shower
         lastMeteorSpawnAt = 0;
         nextMeteorShowerAt = now + 22000 + rand() * 8000;
         toast("Meteor shower!");
       }
-      if (meteorShowerUntil > now) {
+      if (enableMeteors && meteorShowerUntil > now) {
         if (now - lastMeteorSpawnAt > 200) {
           lastMeteorSpawnAt = now;
           const col = Math.floor(rand() * GRID_SIZE);
           meteors.push({ x: col, y: 0 });
         }
         // move meteors down
-        const keep = [];
-        for (const m of meteors) {
-          m.y += 1;
-          if (m.y < GRID_SIZE) keep.push(m);
+        if (now >= stasisUntil) {
+          const keep = [];
+          for (const m of meteors) {
+            m.y += 1;
+            if (m.y < GRID_SIZE) keep.push(m);
+          }
+          meteors = keep;
         }
-        meteors = keep;
-      } else {
+      } else if (enableMeteors) {
         meteors = [];
       }
 
       // black holes appear occasionally
-      if (now > nextBlackHoleAt) {
+      if (enableBlackHoles && now > nextBlackHoleAt) {
         const bh = spawnFood();
         blackHoles.push({ x: bh.x, y: bh.y, expiresAt: now + 10000 });
         nextBlackHoleAt = now + 25000 + rand() * 10000;
       }
-      blackHoles = blackHoles.filter((b) => now < b.expiresAt);
+      blackHoles = enableBlackHoles ? blackHoles.filter((b) => now < b.expiresAt) : [];
 
       // meteor collision (meteors kill unless invincible)
-      if (!invincible && meteors.some((m) => m.x === newHead.x && m.y === newHead.y)) {
-        setGameOver("Struck by a meteor");
-        return;
+      if (enableMeteors && meteors.some((m) => m.x === newHead.x && m.y === newHead.y)) {
+        if (performance.now() < invincibleUntil) {
+          // pass through
+        } else if (hasShield) {
+          consumeShieldAt(newHead.x, newHead.y, performance.now());
+        } else {
+          setGameOver("Struck by a meteor");
+          return;
+        }
       }
       // black hole warp
       for (const b of blackHoles) {
@@ -926,7 +1457,7 @@
         }
       }
 
-      if (!comet && Math.random() < 0.04) {
+      if (enableComet && !comet && Math.random() < 0.04) {
         comet = {
           x: Math.floor(rand() * GRID_SIZE),
           y: Math.floor(rand() * GRID_SIZE),
@@ -936,10 +1467,12 @@
         };
       }
       // move comet
-      if (comet && now - lastCometMoveAt >= COMET_MOVE_INTERVAL_MS) {
+      if (enableComet && comet && now - lastCometMoveAt >= COMET_MOVE_INTERVAL_MS) {
         lastCometMoveAt = now;
-        comet.x += comet.dx;
-        comet.y += comet.dy;
+        if (now >= stasisUntil) {
+          comet.x += comet.dx;
+          comet.y += comet.dy;
+        }
         if (wrapWalls) {
           if (comet.x < 0) comet.x = GRID_SIZE - 1;
           if (comet.x >= GRID_SIZE) comet.x = 0;
@@ -953,7 +1486,7 @@
         }
       }
       // collect comet grants short invincibility and score
-      if (comet && newHead.x === comet.x && newHead.y === comet.y) {
+      if (enableComet && comet && newHead.x === comet.x && newHead.y === comet.y) {
         score += 3;
         invincibleUntil = now + 4000; // 4s
         spawnTextPop("COMET!", comet.x, comet.y, "#93c5fd");
@@ -962,7 +1495,7 @@
         comet = null;
         refreshHUD();
       }
-      if (comet && now > comet.expiresAt) comet = null;
+      if (enableComet && comet && now > comet.expiresAt) comet = null;
     }
   }
 
@@ -1005,21 +1538,25 @@
         const cx = p.x * CELL_PX + CELL_PX / 2;
         const cy = p.y * CELL_PX + CELL_PX / 2;
         ctx.beginPath();
+        // vary color per level to give each level a distinct feel
+        const planetColors = ["#64748b", "#7dd3fc", "#f59e0b", "#a78bfa", "#22c55e", "#ef4444"];
+        const pc = planetColors[(levelIndex) % planetColors.length];
         ctx.arc(cx, cy, CELL_PX * (0.3 + p.radius * 0.05), 0, Math.PI * 2);
-        ctx.fillStyle = "#64748b";
+        ctx.fillStyle = pc;
         ctx.shadowColor = "#94a3b8";
         ctx.shadowBlur = 6;
         ctx.fill();
         ctx.shadowBlur = 0;
       }
-      // warp gates
+      // warp gates (color by level)
       if (warpGates.length === 2) {
         for (const g of warpGates) {
           const cx = g.x * CELL_PX + CELL_PX / 2;
           const cy = g.y * CELL_PX + CELL_PX / 2;
           ctx.beginPath();
           ctx.arc(cx, cy, CELL_PX * 0.35, 0, Math.PI * 2);
-          ctx.strokeStyle = "#60a5fa";
+          const ringColors = ["#60a5fa", "#34d399", "#f472b6", "#f59e0b", "#a78bfa", "#fb7185"];
+          ctx.strokeStyle = ringColors[(levelIndex) % ringColors.length];
           ctx.lineWidth = 2;
           ctx.stroke();
         }
@@ -1039,10 +1576,90 @@
     for (const f of foods) {
       if (theme === "space") drawStar(f.x, f.y, "#60a5fa"); else drawCell(f.x, f.y, "#fb7185", "#e11d48");
     }
+    // Render power-stars
+    if (powerStars.length) {
+      for (const ps of powerStars) {
+        const colorMap = {
+          shield: "#93c5fd", magnet: "#60a5fa", slowmo: "#a7f3d0",
+          phase: "#c4b5fd", warp: "#93c5fd", stasis: "#93c5fd",
+          drone: "#86efac", fuel: "#fbbf24", doublescore: "#fde68a", chain: "#fde68a"
+        };
+        drawStar(ps.x, ps.y, colorMap[ps.kind] || "#ffffff");
+      }
+    }
+    if (wideStar) {
+      drawWideStar(wideStar.x, wideStar.y, "#ffda6a");
+    }
+    // Blink star (if present)
+    if (blinkStar) {
+      const visible = Math.floor(performance.now() / 400) % 2 === 0;
+      if (visible) drawStar(blinkStar.x, blinkStar.y, "#fff176");
+    }
+    // Ring star (outer ring graphic)
+    if (ringStar) {
+      const c = ringStar;
+      const cx = c.x * CELL_PX + CELL_PX / 2;
+      const cy = c.y * CELL_PX + CELL_PX / 2;
+      ctx.save();
+      ctx.strokeStyle = "#a7f3d0";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, CELL_PX * 0.42, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      drawStar(c.x, c.y, "#34d399");
+    }
+    if (novaCore) {
+      drawStar(novaCore.x, novaCore.y, "#fde68a");
+    }
+    if (quantumPair) {
+      drawStar(quantumPair.a.x, quantumPair.a.y, "#c4b5fd");
+      drawStar(quantumPair.b.x, quantumPair.b.y, "#c4b5fd");
+    }
+    if (constellation) {
+      ctx.strokeStyle = "#93c5fd";
+      ctx.beginPath();
+      for (let i = 0; i < constellation.points.length; i += 1) {
+        const p = constellation.points[i];
+        const cx = p.x * CELL_PX + CELL_PX/2;
+        const cy = p.y * CELL_PX + CELL_PX/2;
+        if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+        drawStar(p.x, p.y, i < constellation.nextIndex ? "#93c5fd" : "#64748b");
+      }
+      ctx.stroke();
+    }
 
     // comet render
     if (theme === "space" && comet) {
       drawStar(comet.x, comet.y, "#93c5fd");
+    }
+
+    // Hazards/fields visualization (lightweight)
+    if (asteroidBelts.length) {
+      for (const belt of asteroidBelts) {
+        ctx.fillStyle = "#6b7280";
+        for (let c = 0; c < GRID_SIZE; c += 2) {
+          if (belt.gaps.includes(c)) continue;
+          ctx.fillRect(c * CELL_PX + 4, belt.row * CELL_PX + 4, CELL_PX - 8, CELL_PX - 8);
+        }
+      }
+    }
+    if (antiGravityBubbles.length) {
+      for (const b of antiGravityBubbles) {
+        ctx.strokeStyle = "#60a5fa";
+        ctx.beginPath();
+        ctx.arc(b.x * CELL_PX + CELL_PX/2, b.y * CELL_PX + CELL_PX/2, CELL_PX * (b.radius+0.5), 0, Math.PI*2);
+        ctx.stroke();
+      }
+    }
+    if (solarWinds.length) {
+      ctx.strokeStyle = "rgba(148,163,184,0.3)";
+      for (const w of solarWinds) {
+        ctx.beginPath();
+        ctx.moveTo(w.x1 * CELL_PX, w.y1 * CELL_PX);
+        ctx.lineTo(w.x2 * CELL_PX, w.y2 * CELL_PX);
+        ctx.stroke();
+      }
     }
 
     renderTrail();
@@ -1060,14 +1677,9 @@
       } else {
         ctx.shadowBlur = 0;
       }
-      if (isHead && multiplier >= 4) {
-        const hue = (performance.now() * 0.2) % 360;
-        ctx.fillStyle = `hsl(${hue} 90% 55%)`;
-      } else {
-        // flash when invincible
-        const flashing = theme === "space" && isHead && performance.now() < invincibleUntil && Math.floor(performance.now() / 150) % 2 === 0;
-        ctx.fillStyle = flashing ? "#93c5fd" : (isHead ? "#00ff9a" : "#00d38d");
-      }
+      // flash when invincible; removed multiplier color logic
+      const flashing = theme === "space" && isHead && performance.now() < invincibleUntil && Math.floor(performance.now() / 150) % 2 === 0;
+      ctx.fillStyle = flashing ? "#93c5fd" : (isHead ? "#00ff9a" : "#00d38d");
       ctx.fillRect(sx + 1, sy + 1, CELL_PX - 2, CELL_PX - 2);
 
       if (isHead) {
@@ -1101,9 +1713,11 @@
     requestAnimationFrame(loop);
   }
 
-  // Kick off - force an immediate initial render so you always see content
-  drawBoardBackground();
-  render();
+  // Kick off: prepare level, then show intro overlay before running
+  gameReset();
+  running = false;
+  // announce within applyLevelConfig is already handled during gameReset call above
+  applyLevelConfig(levelIndex, true);
   requestAnimationFrame(loop);
 
   /**
@@ -1136,7 +1750,7 @@
     if (kind === "eat") {
       osc.type = "triangle";
       osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1320 + (multiplier - 1) * 40, ctx.currentTime + 0.08);
+      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.08);
       gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
       osc.start();
       osc.stop(ctx.currentTime + 0.11);
@@ -1309,6 +1923,16 @@
     textPops = keep;
   }
   
+  // Consume shield: breaks shield and grants brief invincibility
+  function consumeShieldAt(cellX, cellY, now) {
+    if (!hasShield) return false;
+    hasShield = false;
+    invincibleUntil = Math.max(invincibleUntil, now + 800);
+    try { toast("Shield broke!"); } catch (_) {}
+    spawnTextPop("🛡️", cellX, cellY, "#93c5fd");
+    return true;
+  }
+
   function drawStar(cxCell, cyCell, color) {
     const cx = cxCell * CELL_PX + CELL_PX / 2;
     const cy = cyCell * CELL_PX + CELL_PX / 2;
@@ -1353,24 +1977,7 @@
     }
   }
 
-  // Simple shop / upgrades
-  function purchase(kind) {
-    const cost = 5;
-    if (stardust < cost) { toast("Not enough Stardust"); return; }
-    stardust -= cost;
-    if (kind === "shield") {
-      hasShield = true;
-      toast("Shield ready (1 hit)");
-    } else if (kind === "magnet") {
-      magnetUntil = performance.now() + 8000;
-      toast("Magnet 8s");
-    } else if (kind === "slowmo") {
-      slowmoUntil = performance.now() + 6000;
-      toast("Slow‑mo 6s");
-    }
-    refreshHUD();
-    playSound("buy");
-  }
+  // Purchase removed (no shop). Power-ups are granted by collecting power-stars.
 
   // Toast notifications
   function toast(message, ms = 2000) {
