@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Snake - Quick Browser Game</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div class="hud">
+        <div class="title">Snake</div>
+        <div class="score">
+          Score: <span id="score-value">0</span>
+          &nbsp;•&nbsp; High: <span id="high-score-value">0</span>
+          &nbsp;•&nbsp; Level: <span id="level-value">1</span>
+          &nbsp;•&nbsp; x<span id="multiplier-value">1</span>
+          <span id="timer-wrap" class="chip u-hidden">Time: <span id="timer-value">60</span>s</span>
+          <span class="chip">Stardust: <span id="stardust-value">0</span></span>
+          <button id="pause-button" class="btn btn-small" title="Pause/Resume">Pause</button>
+          <button id="shop-toggle" class="btn btn-small" title="Open Shop">Shop</button>
+          <button id="levels-toggle" class="btn btn-small" title="Choose Level">Levels</button>
+          <button id="leaderboard-toggle" class="btn btn-small" title="Leaderboard">Leaderboard</button>
+        </div>
+        <div class="controls-hint">Arrows or WASD to move • R to restart • P to pause</div>
+        <div class="settings">
+          <label class="toggle"><input type="checkbox" id="wrap-toggle" /> Wrap walls</label>
+          <label class="toggle"><input type="checkbox" id="obstacles-toggle" checked /> Obstacles</label>
+          <label class="toggle"><input type="checkbox" id="sound-toggle" checked /> Sound</label>
+          <label class="select">
+            Mode
+            <select id="mode-select">
+              <option value="classic" selected>Classic</option>
+              <option value="zen">Zen (chill)</option>
+              <option value="rush">Rush (timer)</option>
+              <option value="hardcore">Hardcore</option>
+              <option value="daily">Daily Run</option>
+            </select>
+          </label>
+          <label class="select">
+            Theme
+            <select id="theme-select">
+              <option value="classic" selected>Classic</option>
+              <option value="neon">Neon</option>
+              <option value="retro">Retro</option>
+              <option value="contrast">High Contrast</option>
+              <option value="space">Space</option>
+            </select>
+          </label>
+        </div>
+        <div id="combo-wrap" class="combo">
+          <div class="combo-bar"><div id="combo-fill" class="combo-fill"></div></div>
+          <div id="combo-label" class="combo-label">Combo x1</div>
+        </div>
+
+        <div id="objective-wrap" class="objective">
+          <div id="objective-label" class="objective-label">Objective: Collect 10 stars</div>
+          <div class="objective-bar"><div id="objective-fill" class="objective-fill"></div></div>
+        </div>
+      </div>
+      <canvas id="game-canvas" width="600" height="600"></canvas>
+
+      <!-- The overlay uses a lower z-index so HUD controls stay clickable while paused -->
+      <div id="overlay" class="overlay hidden" aria-hidden="true">
+        <div class="overlay-card">
+          <div id="overlay-title" class="overlay-title"></div>
+          <div id="overlay-subtitle" class="overlay-subtitle"></div>
+          <button id="resume-button" class="btn btn-secondary u-hidden">Resume</button>
+          <button id="next-level-button" class="btn u-hidden">Next Level</button>
+          <button id="restart-button" class="btn">Play Again</button>
+        </div>
+      </div>
+
+      <div id="toast-container" class="toasts"></div>
+
+      <div id="shop" class="shop u-hidden">
+        <div class="shop-title">Shop</div>
+        <div class="shop-items">
+          <button id="buy-shield" class="btn btn-small">Shield (5)</button>
+          <button id="buy-magnet" class="btn btn-small">Magnet 8s (5)</button>
+          <button id="buy-slowmo" class="btn btn-small">Slow‑mo 6s (5)</button>
+        </div>
+        <div class="shop-hint">Press 1/2/3 to quick-buy. Close Shop to resume play.</div>
+      </div>
+
+      <div id="levels" class="panel u-hidden">
+        <div class="panel-title">Levels</div>
+        <div id="levels-list" class="panel-list"></div>
+      </div>
+
+      <div id="leaderboard" class="panel u-hidden">
+        <div class="panel-title">Leaderboard</div>
+        <div class="panel-hint">Top 10 for current mode</div>
+        <div id="leaderboard-list" class="panel-list"></div>
+      </div>
+    </div>
+
+    <script src="snake.js?v=3" defer></script>
+  </body>
+  </html>
+
+
