@@ -25,9 +25,31 @@
         </div>
         <div class="controls-hint">Arrows or WASD to move • R to restart • P to pause</div>
         <div class="settings">
-          <label class="toggle"><input type="checkbox" id="wrap-toggle" /> Wrap walls</label>
+          <label class="select">Wrap
+            <select id="wrap-mode-select">
+              <option value="none">None</option>
+              <option value="wrap" selected>Wrap</option>
+              <option value="portals">Portals</option>
+            </select>
+          </label>
           <label class="toggle"><input type="checkbox" id="obstacles-toggle" checked /> Obstacles</label>
           <label class="toggle"><input type="checkbox" id="sound-toggle" checked /> Sound</label>
+          <label class="select">Grid
+            <select id="grid-select">
+              <option value="16">16</option>
+              <option value="20" selected>20</option>
+              <option value="24">24</option>
+              <option value="30">30</option>
+            </select>
+          </label>
+          <label class="select">Difficulty
+            <select id="difficulty-select">
+              <option value="gentle">Gentle</option>
+              <option value="standard" selected>Standard</option>
+              <option value="brutal">Brutal</option>
+            </select>
+          </label>
+          <label class="toggle"><input type="checkbox" id="momentum-toggle" /> Momentum</label>
           <label class="select">
             Mode
             <select id="mode-select">
@@ -38,16 +60,7 @@
               <option value="daily">Daily Run</option>
             </select>
           </label>
-          <label class="select">
-            Theme
-            <select id="theme-select">
-              <option value="classic" selected>Classic</option>
-              <option value="neon">Neon</option>
-              <option value="retro">Retro</option>
-              <option value="contrast">High Contrast</option>
-              <option value="space">Space</option>
-            </select>
-          </label>
+          
         </div>
         <div id="combo-wrap" class="combo">
           <div class="combo-bar"><div id="combo-fill" class="combo-fill"></div></div>

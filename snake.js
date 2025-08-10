@@ -30,11 +30,13 @@
   const levelsList = document.getElementById("levels-list");
   const leaderboardPanel = document.getElementById("leaderboard");
   const leaderboardList = document.getElementById("leaderboard-list");
-  const wrapToggle = document.getElementById("wrap-toggle");
+  const wrapModeSelect = document.getElementById("wrap-mode-select");
   const obstaclesToggle = document.getElementById("obstacles-toggle");
   const soundToggle = document.getElementById("sound-toggle");
+  const gridSelect = document.getElementById("grid-select");
+  const difficultySelect = document.getElementById("difficulty-select");
+  const momentumToggle = document.getElementById("momentum-toggle");
   const modeSelect = document.getElementById("mode-select");
-  const themeSelect = document.getElementById("theme-select");
   const multiplierValueEl = document.getElementById("multiplier-value");
   const timerWrap = document.getElementById("timer-wrap");
   const timerValueEl = document.getElementById("timer-value");
@@ -69,9 +71,9 @@
   const titleEl = document.querySelector(".title");
   if (titleEl) titleEl.textContent = "Snake ✅";
 
-  const GRID_SIZE = 20; // 20x20 grid on 600x600 canvas => 30px cells
-  const CELL_PX = canvas.width / GRID_SIZE; // 30
-  const BASE_MOVE_INTERVAL_MS = 120;
+  let GRID_SIZE = 20;
+  let CELL_PX = canvas.width / GRID_SIZE;
+  let BASE_MOVE_INTERVAL_MS = 120;
   const MIN_MOVE_INTERVAL_MS = 60;
   const HIGH_SCORE_KEY = "snakeHighScoreV1";
   const MAX_OBSTACLES = 20;
@@ -81,6 +83,9 @@
     sound: "snakeSoundV1",
     mode: "snakeModeV1",
     theme: "snakeThemeV1",
+    grid: "snakeGridV1",
+    difficulty: "snakeDiffV1",
+    momentum: "snakeMomentumV1",
   };
 
   // Seeded RNG (for Daily Run)
@@ -117,7 +122,8 @@
   let moveIntervalMs = BASE_MOVE_INTERVAL_MS;
   let highScore = 0;
   let lastTouchStart = null;
-  let wrapWalls = false;
+  let wrapWalls = true;
+  let wrapMode = "wrap"; // none | wrap | portals
   let obstaclesEnabled = true;
   let soundEnabled = true;
   let particles = [];
@@ -139,19 +145,22 @@
   let lastMeteorSpawnAt = 0;
   let blackHoles = []; // {x,y,expiresAt}
   let nextBlackHoleAt = performance.now() + 25000;
+  let planets = []; // {x,y,radius}
+  let warpGates = []; // [{x,y},{x,y}]
   let multiplier = 1;
   let lastEatAt = 0;
   let mode = "classic"; // classic | zen | rush | hardcore
-  let theme = "classic"; // classic | neon | retro | contrast | space
+  const themeSelect = null; // removed in space-only mode
+  let theme = "space"; // force space theme
   let rushTimerMs = 60000; // 60 seconds
   let foods = []; // extra foods
   const CAMPAIGN = [
-    { theme: "classic", target: 8 },
-    { theme: "neon", target: 12 },
-    { theme: "retro", target: 16 },
-    { theme: "contrast", target: 20 },
+    { theme: "space", target: 10 },
+    { theme: "space", target: 14 },
     { theme: "space", target: 18 },
-    { theme: "space", target: 24 },
+    { theme: "space", target: 22 },
+    { theme: "space", target: 26 },
+    { theme: "space", target: 30 },
   ];
   let levelIndex = 0;
   let objective = { type: "collect", target: CAMPAIGN[0].target, progress: 0 };
@@ -171,17 +180,24 @@
   highScoreValueEl.textContent = String(highScore);
   // Load and apply preferences
   try {
-    wrapWalls = localStorage.getItem(PREFS_KEY.wrap) === "1";
+    wrapWalls = localStorage.getItem(PREFS_KEY.wrap) !== "0";
+    wrapMode = wrapWalls ? (localStorage.getItem(PREFS_KEY.wrap) === "portals" ? "portals" : "wrap") : "none";
     obstaclesEnabled = localStorage.getItem(PREFS_KEY.obstacles) !== "0"; // default on
     soundEnabled = localStorage.getItem(PREFS_KEY.sound) !== "0"; // default on
     mode = localStorage.getItem(PREFS_KEY.mode) || mode;
-    theme = localStorage.getItem(PREFS_KEY.theme) || theme;
+    theme = "space";
+    GRID_SIZE = parseInt(localStorage.getItem(PREFS_KEY.grid) || "20", 10);
+    BASE_MOVE_INTERVAL_MS = { gentle: 150, standard: 120, brutal: 95 }[localStorage.getItem(PREFS_KEY.difficulty) || "standard"];
+    CELL_PX = canvas.width / GRID_SIZE;
+    if (localStorage.getItem(PREFS_KEY.momentum)) momentumToggle && (momentumToggle.checked = localStorage.getItem(PREFS_KEY.momentum) === "1");
   } catch (_) {}
-  if (wrapToggle) wrapToggle.checked = wrapWalls;
+  if (wrapModeSelect) wrapModeSelect.value = wrapMode;
   if (obstaclesToggle) obstaclesToggle.checked = obstaclesEnabled;
   if (soundToggle) soundToggle.checked = soundEnabled;
   if (modeSelect) modeSelect.value = mode;
-  if (themeSelect) themeSelect.value = theme;
+  
+  if (gridSelect) gridSelect.value = String(GRID_SIZE);
+  if (difficultySelect) difficultySelect.value = (localStorage.getItem(PREFS_KEY.difficulty) || "standard");
 
   // HUD helpers
   function refreshHUD() {
@@ -386,6 +402,19 @@
     meteorShowerUntil = 0;
     blackHoles = [];
     nextBlackHoleAt = performance.now() + 25000;
+    // spawn 1-2 planets (gravity wells) and one warp gate pair
+    planets = [];
+    const planetCount = 1 + Math.floor(rand() * 2);
+    for (let i = 0; i < planetCount; i += 1) {
+      const p = spawnFood();
+      planets.push({ x: p.x, y: p.y, radius: 2 + Math.floor(rand() * 2) });
+    }
+    warpGates = [];
+    if (rand() < 0.9) {
+      const a = spawnFood();
+      const b = spawnFood();
+      warpGates = [{ x: a.x, y: a.y }, { x: b.x, y: b.y }];
+    }
     if (mode === "rush") rushTimerMs = 60000;
     // Keep high score
   }
@@ -426,10 +455,9 @@
     levelIndex += 1;
     if (levelIndex >= CAMPAIGN.length) levelIndex = CAMPAIGN.length - 1;
     const config = CAMPAIGN[levelIndex];
-    theme = config.theme;
-    if (themeSelect) themeSelect.value = theme;
+    theme = "space";
     objective = { type: "collect", target: config.target, progress: 0 };
-    toast(`Level ${levelIndex + 1} (${theme}): Collect ${objective.target} stars`);
+    toast(`Level ${levelIndex + 1}: Collect ${objective.target} stars`);
     if (obstaclesEnabled) {
       const target = desiredObstacleCountForScore(score) + 2;
       while (obstacles.length < target) spawnObstacle();
@@ -444,9 +472,15 @@
    * Input
    */
   function handleDirectionChange(nx, ny) {
-    // prevent reversing instantly
+    // momentum mode allows buffered turns but blocks immediate reversal
     const isOpposite = nx === -direction.x && ny === -direction.y;
-    if (!isOpposite) queuedDirection = { x: nx, y: ny };
+    if (isOpposite) return;
+    if (momentumToggle && momentumToggle.checked) {
+      // queue up to 2 steps ahead (simple buffer)
+      queuedDirection = { x: nx, y: ny };
+    } else {
+      queuedDirection = { x: nx, y: ny };
+    }
   }
 
   window.addEventListener("keydown", (e) => {
@@ -471,10 +505,11 @@
     if (gameOver) gameReset();
   });
   // Settings toggles
-  if (wrapToggle) {
-    wrapToggle.addEventListener("change", () => {
-      wrapWalls = wrapToggle.checked;
-      try { localStorage.setItem(PREFS_KEY.wrap, wrapWalls ? "1" : "0"); } catch (_) {}
+  if (wrapModeSelect) {
+    wrapModeSelect.addEventListener("change", () => {
+      wrapMode = wrapModeSelect.value;
+      wrapWalls = wrapMode !== "none";
+      try { localStorage.setItem(PREFS_KEY.wrap, wrapMode === "wrap" ? "1" : wrapMode); } catch (_) {}
     });
   }
   if (obstaclesToggle) {
@@ -494,6 +529,22 @@
       soundEnabled = soundToggle.checked;
       try { localStorage.setItem(PREFS_KEY.sound, soundEnabled ? "1" : "0"); } catch (_) {}
       unlockAudio();
+    });
+  }
+  if (gridSelect) {
+    gridSelect.addEventListener("change", () => {
+      GRID_SIZE = parseInt(gridSelect.value, 10);
+      CELL_PX = canvas.width / GRID_SIZE;
+      gameReset();
+      try { localStorage.setItem(PREFS_KEY.grid, String(GRID_SIZE)); } catch (_) {}
+    });
+  }
+  if (difficultySelect) {
+    difficultySelect.addEventListener("change", () => {
+      const diff = difficultySelect.value;
+      try { localStorage.setItem(PREFS_KEY.difficulty, diff); } catch (_) {}
+      BASE_MOVE_INTERVAL_MS = { gentle: 150, standard: 120, brutal: 95 }[diff];
+      moveIntervalMs = BASE_MOVE_INTERVAL_MS;
     });
   }
   if (modeSelect) {
@@ -648,11 +699,22 @@
     let newHead = { x: head.x + direction.x, y: head.y + direction.y };
 
     // wall behavior
-    if (wrapWalls) {
+    if (wrapMode === "wrap") {
       if (newHead.x < 0) newHead.x = GRID_SIZE - 1;
       if (newHead.x >= GRID_SIZE) newHead.x = 0;
       if (newHead.y < 0) newHead.y = GRID_SIZE - 1;
       if (newHead.y >= GRID_SIZE) newHead.y = 0;
+    } else if (wrapMode === "portals") {
+      const exitedLeft = newHead.x < 0;
+      const exitedRight = newHead.x >= GRID_SIZE;
+      const exitedTop = newHead.y < 0;
+      const exitedBottom = newHead.y >= GRID_SIZE;
+      if (exitedLeft || exitedRight || exitedTop || exitedBottom) {
+        const safe = spawnFood();
+        newHead.x = safe.x;
+        newHead.y = safe.y;
+        invincibleUntil = now + 600; // portal grace
+      }
     } else {
       if (newHead.x < 0 || newHead.x >= GRID_SIZE || newHead.y < 0 || newHead.y >= GRID_SIZE) {
         setGameOver("You hit a wall");
@@ -792,6 +854,29 @@
 
     // Space theme special: moving comet power-up
     if (theme === "space") {
+      // gravity wells pull the head lightly
+      for (const p of planets) {
+        const dx = p.x - newHead.x;
+        const dy = p.y - newHead.y;
+        const dist2 = dx * dx + dy * dy;
+        if (dist2 > 0 && dist2 < (p.radius * p.radius) * 9) {
+          // nudge 1 cell towards planet occasionally
+          if (rand() < 0.25) {
+            newHead.x += Math.sign(dx);
+            newHead.y += Math.sign(dy);
+          }
+        }
+      }
+      // warp gates
+      if (warpGates.length === 2) {
+        const a = warpGates[0];
+        const b = warpGates[1];
+        if (newHead.x === a.x && newHead.y === a.y) {
+          newHead.x = b.x; newHead.y = b.y; invincibleUntil = now + 600; spawnTextPop("Warp", a.x, a.y, "#93c5fd");
+        } else if (newHead.x === b.x && newHead.y === b.y) {
+          newHead.x = a.x; newHead.y = a.y; invincibleUntil = now + 600; spawnTextPop("Warp", b.x, b.y, "#93c5fd");
+        }
+      }
       // meteor shower schedule
       if (meteorShowerUntil === 0 && now > nextMeteorShowerAt) {
         meteorShowerUntil = now + 6000; // 6s shower
@@ -915,6 +1000,30 @@
         ctx.lineWidth = 2;
         ctx.stroke();
       }
+      // planets
+      for (const p of planets) {
+        const cx = p.x * CELL_PX + CELL_PX / 2;
+        const cy = p.y * CELL_PX + CELL_PX / 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, CELL_PX * (0.3 + p.radius * 0.05), 0, Math.PI * 2);
+        ctx.fillStyle = "#64748b";
+        ctx.shadowColor = "#94a3b8";
+        ctx.shadowBlur = 6;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      // warp gates
+      if (warpGates.length === 2) {
+        for (const g of warpGates) {
+          const cx = g.x * CELL_PX + CELL_PX / 2;
+          const cy = g.y * CELL_PX + CELL_PX / 2;
+          ctx.beginPath();
+          ctx.arc(cx, cy, CELL_PX * 0.35, 0, Math.PI * 2);
+          ctx.strokeStyle = "#60a5fa";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      }
     }
 
     // draw food and variants
@@ -988,6 +1097,7 @@
     if (!inSlowmo) update();
     else if (Math.random() < 0.5) update();
     render();
+    pollGamepad(performance.now());
     requestAnimationFrame(loop);
   }
 
@@ -1048,6 +1158,26 @@
 
   window.addEventListener("pointerdown", unlockAudio, { once: true });
   window.addEventListener("keydown", unlockAudio, { once: true });
+
+  // Gamepad support (basic)
+  let lastGamepadPoll = 0;
+  function pollGamepad(ts) {
+    if (ts - lastGamepadPoll < 70) return; // ~14Hz
+    lastGamepadPoll = ts;
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    const gp = pads && pads[0];
+    if (!gp) return;
+    const axX = gp.axes[0] || 0;
+    const axY = gp.axes[1] || 0;
+    const btnUp = gp.buttons[12] && gp.buttons[12].pressed;
+    const btnDown = gp.buttons[13] && gp.buttons[13].pressed;
+    const btnLeft = gp.buttons[14] && gp.buttons[14].pressed;
+    const btnRight = gp.buttons[15] && gp.buttons[15].pressed;
+    if (btnUp || axY < -0.5) handleDirectionChange(0, -1);
+    else if (btnDown || axY > 0.5) handleDirectionChange(0, 1);
+    else if (btnLeft || axX < -0.5) handleDirectionChange(-1, 0);
+    else if (btnRight || axX > 0.5) handleDirectionChange(1, 0);
+  }
 
   function triggerHaptic() {
     if ("vibrate" in navigator) {
