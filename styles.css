@@ -218,6 +218,8 @@ canvas {
   box-shadow: 0 20px 60px rgba(0,0,0,0.4);
 }
 
+.trophy-img { width: min(40vw, 220px); height: auto; display: block; margin: 8px auto 12px; }
+
 .overlay-title {
   font-size: 28px;
   font-weight: 800;

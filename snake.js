@@ -905,16 +905,8 @@ function drawCell(x, y, color1, color2) {
     if (intermissionActions) intermissionActions.classList.add("u-hidden");
     if (intermissionShop) intermissionShop.classList.add("u-hidden");
     overlay.classList.add("hidden");
-    // Wait for directional input before resuming
+    // Wait for directional input before resuming (keyboard or swipe)
     running = false;
-    const resumeOnNextArrow = (e) => {
-      const k = e.key;
-      if (k === "ArrowUp" || k === "w" || k === "W" || k === "ArrowDown" || k === "s" || k === "S" || k === "ArrowLeft" || k === "a" || k === "A" || k === "ArrowRight" || k === "d" || k === "D") {
-        running = true;
-        window.removeEventListener("keydown", resumeOnNextArrow);
-      }
-    };
-    window.addEventListener("keydown", resumeOnNextArrow);
     refreshHUD();
   }
 
@@ -930,6 +922,11 @@ function drawCell(x, y, color1, color2) {
       queuedDirection = { x: nx, y: ny };
     } else {
       queuedDirection = { x: nx, y: ny };
+    }
+    // If we are waiting for input after closing an overlay, resume on first direction
+    if (!running && !gameOver && overlay.classList.contains('hidden')) {
+      running = true;
+      lastMoveAt = performance.now();
     }
   }
 
@@ -1311,7 +1308,11 @@ function drawCell(x, y, color1, color2) {
             if (resumeButton) resumeButton.classList.add("u-hidden");
             if (startButton) startButton.classList.add("u-hidden");
             if (intermissionActions) intermissionActions.classList.add("u-hidden");
-            if (intermissionShop) intermissionShop.classList.add("u-hidden");
+            if (intermissionShop) { intermissionShop.classList.add("u-hidden"); intermissionShop.innerHTML = ""; }
+            const intermissionListEl = document.getElementById("intermission-list");
+            if (intermissionListEl) intermissionListEl.innerHTML = "";
+            const startListEl2 = document.getElementById("start-list");
+            if (startListEl2) { startListEl2.classList.add("u-hidden"); startListEl2.innerHTML = ""; }
             if (restartButton) restartButton.classList.remove("u-hidden");
             overlay.classList.remove("hidden");
             running = false;
