@@ -1,0 +1,21 @@
+name: Lint HTML/CSS/JS
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Super Linter (HTML/CSS/JS)
+        uses: github/super-linter/slim@v6
+        env:
+          DEFAULT_BRANCH: main
+          VALIDATE_ALL_CODEBASE: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FILTER_REGEX_INCLUDE: ".*\.(html|css|js)$"
+
