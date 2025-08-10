@@ -56,11 +56,7 @@ body {
   letter-spacing: 0.5px;
 }
 
-.hud-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
+.hud-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 
 .stat {
   background: rgba(0,0,0,0.25);
@@ -219,12 +215,12 @@ canvas {
 
 .overlay-card {
   width: min(92vw, 420px);
-  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
-  border: 1px solid rgba(255,255,255,0.08);
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01));
+  border: 1px solid rgba(255,255,255,0.06);
   border-radius: 16px;
   padding: 22px 20px;
   text-align: center;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
 }
 
 .overlay-title {
@@ -298,7 +294,7 @@ canvas {
 .stack { display: grid; gap: 8px; }
 
 .intermission-shop { margin-top: 10px; display: grid; gap: 8px; }
-.intermission-item { display: grid; grid-template-columns: 24px 24px 1fr; align-items: center; gap: 8px; padding: 8px; background: rgba(0,0,0,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; }
+.intermission-item { display: grid; grid-template-columns: 24px 24px 1fr; align-items: center; gap: 8px; padding: 8px; background: rgba(0,0,0,0.92); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; }
 .intermission-item .star { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; }
 .intermission-item .icon { font-size: 18px; filter: drop-shadow(0 0 2px rgba(255,255,255,0.3)); }
 .intermission-item .meta { display: grid; }
