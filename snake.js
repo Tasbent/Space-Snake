@@ -66,6 +66,26 @@
   const objectiveLabel = document.getElementById("objective-label");
   const objectiveFill = null; // replaced by objectiveStarsEl
 
+  function positionOverlayCard() {
+    try {
+      if (!overlay) return;
+      const hud = document.querySelector('.hud');
+      const card = overlay.querySelector('.overlay-card');
+      if (!hud || !card) return;
+      const r = hud.getBoundingClientRect();
+      const offset = Math.ceil(r.bottom + 8);
+      overlay.style.alignItems = 'flex-start';
+      card.style.marginTop = `${offset}px`;
+      // Ensure the card always fits the viewport; scroll inside card if content is long
+      const available = Math.max(140, window.innerHeight - offset - 16);
+      card.style.maxHeight = `${available}px`;
+      card.style.overflowY = 'auto';
+      card.style.webkitOverflowScrolling = 'touch';
+    } catch (_) {}
+  }
+  window.addEventListener('resize', positionOverlayCard);
+  window.addEventListener('orientationchange', positionOverlayCard);
+
   // Debug: surface runtime errors visibly in the UI
   window.addEventListener("error", (e) => {
     if (!overlay) return;
@@ -373,6 +393,7 @@
         overlay.classList.remove("hidden");
         overlay.setAttribute("aria-hidden", "false");
         overlayTitle.textContent = `Level ${index + 1}`;
+          positionOverlayCard();
         const startList = document.getElementById("start-list");
         const kinds = enabledPowerKinds;
         if (index === 0) {
@@ -854,6 +875,7 @@ function drawCell(x, y, color1, color2) {
     if (restartButton) restartButton.classList.remove("u-hidden");
     if (intermissionActions) intermissionActions.classList.add("u-hidden");
     overlay.classList.remove("hidden");
+    positionOverlayCard();
     playSound("gameover");
     triggerHaptic();
     screenShakeMs = 400;
@@ -874,6 +896,7 @@ function drawCell(x, y, color1, color2) {
       if (intermissionShop) intermissionShop.classList.add("u-hidden");
       overlay.classList.remove("hidden");
       overlay.setAttribute("aria-hidden", "false");
+      positionOverlayCard();
     } else {
       overlay.classList.add("hidden");
       overlay.setAttribute("aria-hidden", "true");
@@ -1122,6 +1145,17 @@ function drawCell(x, y, color1, color2) {
     btn.addEventListener("mousedown", press);
   }
   bindDpad(dUp, 0, -1); bindDpad(dDown, 0, 1); bindDpad(dLeft, -1, 0); bindDpad(dRight, 1, 0);
+
+  // Unhide the on-screen D-pad on touch/coarse-pointer devices only
+  if (dpad) {
+    const detectCoarse = () => {
+      const mm = window.matchMedia ? window.matchMedia("(hover: none) and (pointer: coarse)").matches : false;
+      const hasTouch = ("maxTouchPoints" in navigator && navigator.maxTouchPoints > 0) || ("ontouchstart" in window);
+      return mm || hasTouch;
+    };
+    const show = detectCoarse();
+    dpad.classList.toggle("u-hidden", !show);
+  }
 
   // Swipe controls on canvas
   canvas.addEventListener(
